@@ -244,6 +244,64 @@ class InstallerUpdate(unittest.TestCase):
             with self.assertRaises(ValueError):m.verify_target_device('/target',lambda *a:'overlay')
 
 
+class GamescopeCanNowBeDeliveredByAnUpdate(unittest.TestCase):
+    """Gamescope used to be reachable only by installing a whole new image.
+
+    It belonged with the driver, among the things that cost a new image, a destructive
+    install and the first OS update to change, because the signed bundle could not
+    carry it. Its three files are now in the bundle's list at the paths
+    `pc_install_gamescope` reads, and that function already runs at the end of every
+    transaction, so it verifies the binary against its own provenance, refuses a
+    commit it does not recognise and writes the session override with no new code.
+
+    An installed 0.1.8 will ignore these three names and say so, which is what makes
+    the first release safe to publish: it teaches the installed tool the names, and
+    the release after it delivers the binary.
+    """
+
+    ROOT = Path(__file__).parents[1]
+
+    def test_the_three_files_land_where_the_installer_looks_for_them(self):
+        self.assertEqual(m.FILES['gamescope'], ('usr/lib/steamos-nvidia/gamescope/bin/gamescope', 0o755))
+        for name in ('gamescope-build.json', 'Gamescope-LICENSE'):
+            with self.subTest(name=name):
+                self.assertEqual(m.FILES[name], ('usr/lib/steamos-nvidia/gamescope/' + name, 0o644))
+        support = (self.ROOT / 'lib/pc-support.sh').read_text()
+        # The paths above are only correct if they are the ones that function reads.
+        self.assertIn('base="$1/usr/lib/steamos-nvidia/gamescope"', support)
+        self.assertIn("(p/'bin/gamescope')", support)
+        self.assertIn("(p/'Gamescope-LICENSE')", support)
+        self.assertIn("(p/'gamescope-build.json')", support)
+
+    def test_every_optional_group_is_all_or_nothing_on_its_own(self):
+        # The overlay and Gamescope are independent: carrying one in full and not the
+        # other is a valid release, and half of either is not.
+        for group_name, group in m.OPTIONAL_GROUPS.items():
+            value = manifest()
+            for name in group:
+                del value['files'][name]
+            with self.subTest(group=group_name, case='absent in full'):
+                m.validate_manifest(value)
+            for name in sorted(group):
+                partial = dict(value, files={**value['files'], name: '0' * 64})
+                with self.subTest(group=group_name, partial=name), self.assertRaises(ValueError):
+                    m.validate_manifest(partial)
+
+    def test_the_transaction_already_installs_and_re_verifies_it(self):
+        source = (self.ROOT / 'scripts/installer-update.py').read_text()
+        self.assertIn('pc_install_gamescope "$1"', source)
+        self.assertIn('pc_write_addon_manifest "$1"', source)
+        self.assertIn('pc_check_addons "$1"', source)
+
+    def test_the_release_builder_carries_it_only_when_asked(self):
+        builder = (self.ROOT / 'tools/build-installer-release.py').read_text()
+        self.assertIn('--gamescope-dir', builder)
+        self.assertIn("'gamescope': gamescope_dir", builder)
+        # A bundle built without the directory must stay valid, which is the same
+        # property the overlay has relied on since 0.1.2.
+        self.assertIn('if sources[group] is not None:', builder)
+
+
 class TheBundleCanGainFilesWithoutStrandingAnyone(unittest.TestCase):
     """A release may carry files an installed version does not know about.
 

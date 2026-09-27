@@ -1,0 +1,100 @@
+--- a/src/Backends/DRMBackend.cpp
++++ b/src/Backends/DRMBackend.cpp
+@@ -101,6 +101,10 @@ namespace gamescope
+ 
+ struct drm_t {
+ 	bool bUseLiftoff;
++	// Whether alpha blended layers must be composited rather than handed to
++	// hardware planes, decided once in init_drm, and the last decision made.
++	bool bCompositeNvidiaAlphaLayers = false;
++	int nLastAlphaPolicy = -1;
+ 
+ 	int fd = -1;
+ 
+@@ -1257,6 +1261,50 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
+ 		return false;
+ 	}
+ 
++	// Blending a layer that carries alpha on a hardware plane corrupts the picture on
++	// nvidia-drm, so those frames are composited instead. This is decided from the
++	// display device that was actually opened, never from the render GPU, so a hybrid
++	// system with an NVIDIA render GPU behind another display controller is unaffected.
++	// On a device that is positively identified the policy is on;
++	// GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=0 opts out of this reason alone and 1 asks for
++	// it explicitly. It cannot be turned on for any other driver.
++	{
++		std::optional<bool> oRequested;
++		const char *pszRequest = getenv( "GAMESCOPE_NVIDIA_COMPOSITE_ALPHA" );
++		if ( pszRequest && *pszRequest )
++		{
++			if ( !strcmp( pszRequest, "0" ) )
++				oRequested = false;
++			else if ( !strcmp( pszRequest, "1" ) )
++				oRequested = true;
++			else
++				drm_log.warnf( "GAMESCOPE_NVIDIA_COMPOSITE_ALPHA is '%s', which is neither 0 nor 1. Using the default.", pszRequest );
++		}
++
++		drmVersionPtr pVersion = drmGetVersion( drm->fd );
++		const char *pszDriver = ( pVersion && pVersion->name && *pVersion->name ) ? pVersion->name : nullptr;
++		const bool bNvidiaDisplay = pszDriver && !strcmp( pszDriver, "nvidia-drm" );
++		drm->bCompositeNvidiaAlphaLayers = bNvidiaDisplay && oRequested.value_or( true );
++
++		if ( !pszDriver )
++		{
++			drm_log.warnf( "Could not identify the driver of the display device. Presentation behaviour is unchanged and the NVIDIA alpha layer composition policy is NOT active." );
++		}
++		else
++		{
++			drm_log.infof( "Display device driver: %s", pszDriver );
++			if ( !bNvidiaDisplay )
++				drm_log.infof( "NVIDIA alpha layer composition policy: not applicable to %s", pszDriver );
++			else if ( drm->bCompositeNvidiaAlphaLayers )
++				drm_log.infof( "NVIDIA alpha layer composition policy: enabled%s", oRequested ? " by GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=1" : " by default for nvidia-drm" );
++			else
++				drm_log.infof( "NVIDIA alpha layer composition policy: disabled by GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=0. Every other reason to composite still applies." );
++		}
++
++		if ( pVersion )
++			drmFreeVersion( pVersion );
++	}
++
+ 	if (drmGetCap(drm->fd, DRM_CAP_CURSOR_WIDTH, &drm->cursor_width) != 0) {
+ 		drm->cursor_width = 64;
+ 	}
+@@ -3495,6 +3543,35 @@ namespace gamescope
+ 
+ 			bool bNeedsFullComposite = false;
+ 			bNeedsFullComposite |= cv_composite_force;
++
++			// Refuse the plane path before a request is built, rather than building one
++			// and reading a failure back, so no atomic request is rolled back and no
++			// negative liftoff cache entry is created by a policy choice. A single input
++			// keeps its ordinary eligibility.
++			bool bCompositeAlphaLayers = false;
++			if ( g_DRM.bCompositeNvidiaAlphaLayers && pFrameInfo->layerCount > 1 )
++			{
++				for ( int i = 0; i < pFrameInfo->layerCount; ++i )
++				{
++					const auto &layer = pFrameInfo->layers[ i ];
++					if ( layer.zpos != g_zposBase &&
++						 ( layer.opacity < 1.0f || ( layer.hasAlpha() && layer.eAlphaBlendingMode != ALPHA_BLENDING_MODE_NONE ) ) )
++					{
++						bCompositeAlphaLayers = true;
++						break;
++					}
++				}
++			}
++			bNeedsFullComposite |= bCompositeAlphaLayers;
++
++			if ( g_DRM.bCompositeNvidiaAlphaLayers && g_DRM.nLastAlphaPolicy != int( bCompositeAlphaLayers ) )
++			{
++				g_DRM.nLastAlphaPolicy = int( bCompositeAlphaLayers );
++				drm_log.infof( "NVIDIA alpha layer composition on '%s': %s with %d inputs",
++					g_DRM.pConnector ? g_DRM.pConnector->GetName() : "no connector",
++					bCompositeAlphaLayers ? "compositing" : "not needed",
++					pFrameInfo->layerCount );
++			}
+ 			bNeedsFullComposite |= bWasFirstFrame;
+ 			bNeedsFullComposite |= pFrameInfo->useFSRLayer0;
+ 			bNeedsFullComposite |= pFrameInfo->useNISLayer0;

@@ -40,16 +40,20 @@ pc_install_bundled_notification_renderer() {{
     return (ROOT / 'lib/pc-support.sh').read_bytes() + function.encode()
 
 
-def build(output, version, steamos, notes, key, mangoapp_dir=None):
+def build(output, version, steamos, notes, key, mangoapp_dir=None, gamescope_dir=None):
     if not m.VERSION_RE.fullmatch(version):
         raise ValueError('Invalid release version')
     output.mkdir(parents=True, exist_ok=False)
     installer = (ROOT / 'steamos-nvidia-installer.sh').read_text()
     contents = {}
+    sources = {'overlay': mangoapp_dir, 'gamescope': gamescope_dir}
     for name in m.FILES:
-        if name in m.OPTIONAL_FILES:
-            if mangoapp_dir is not None:
-                contents[name] = (mangoapp_dir / name).read_bytes()
+        group = next((g for g, names in m.OPTIONAL_GROUPS.items() if name in names), None)
+        if group is not None:
+            # A group is included only when its directory is given, and then in full,
+            # which is what the manifest validator requires of it.
+            if sources[group] is not None:
+                contents[name] = (sources[group] / name).read_bytes()
             continue
         if name == 'pc-support.sh':
             contents[name] = bundled_support()
@@ -84,6 +88,8 @@ if __name__ == '__main__':
     parser.add_argument('--steamos', action='append', required=True)
     parser.add_argument('--notes', type=Path, required=True)
     parser.add_argument('--mangoapp-dir', type=Path, help='Include a built overlay artifact and its provenance/license')
+    parser.add_argument('--gamescope-dir', type=Path, help='Include a built Gamescope artifact and its provenance/license')
     parser.add_argument('--signing-key', type=Path, required=True)
     args = parser.parse_args()
-    build(args.output, args.version, args.steamos, args.notes.read_text(), args.signing_key, args.mangoapp_dir)
+    build(args.output, args.version, args.steamos, args.notes.read_text(), args.signing_key,
+          args.mangoapp_dir, args.gamescope_dir)

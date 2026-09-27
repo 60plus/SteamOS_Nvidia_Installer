@@ -21,7 +21,13 @@ CONFIG = BASE / 'installer-update-source.json'
 VERSION_RE = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?')
 MAX_BUNDLE = 32 * 1024 * 1024
 # Only project-owned files. Packages cannot replace arbitrary OS files or trust settings.
-OPTIONAL_FILES = {'mangoapp', 'mangoapp-build.json', 'MangoHud-LICENSE'}
+# An optional group is all or nothing, so a half delivered artifact can never be installed:
+# a binary without the provenance that names its source, or without its license, is refused.
+OPTIONAL_GROUPS = {
+    'overlay': {'mangoapp', 'mangoapp-build.json', 'MangoHud-LICENSE'},
+    'gamescope': {'gamescope', 'gamescope-build.json', 'Gamescope-LICENSE'},
+}
+OPTIONAL_FILES = set().union(*OPTIONAL_GROUPS.values())
 REQUIRED_FIELDS = {'format', 'version', 'steamos', 'bundle_sha256', 'files', 'notes'}
 NAME_RE = re.compile(r'[A-Za-z0-9._-]{1,64}')
 MAX_FILES = 64
@@ -38,6 +44,13 @@ FILES = {
         'driver-change.py', 'driver-stage.sh', 'driver-manager.py', 'installer-update.py', 'installer-update-ui.py')},
     **{name: ('usr/lib/steamos-nvidia/' + name, 0o644) for name in
        ('change-nvidia-driver.png', 'installer-update.png')},
+    # Gamescope was previously reachable only by installing a new image. Its three files
+    # sit where pc_install_gamescope expects them, which verifies the binary against the
+    # provenance, refuses an artifact whose commit it does not know, and writes the
+    # session override. That function already runs at the end of every transaction.
+    'gamescope': ('usr/lib/steamos-nvidia/gamescope/bin/gamescope', 0o755),
+    'gamescope-build.json': ('usr/lib/steamos-nvidia/gamescope/gamescope-build.json', 0o644),
+    'Gamescope-LICENSE': ('usr/lib/steamos-nvidia/gamescope/Gamescope-LICENSE', 0o644),
 }
 
 
@@ -115,9 +128,11 @@ def validate_manifest(value):
     if not all(isinstance(name, str) and NAME_RE.fullmatch(name) for name in names):
         raise ValueError('Invalid release file name')
     required = set(FILES) - OPTIONAL_FILES
-    optional = names & OPTIONAL_FILES
-    if required - names or optional not in (set(), OPTIONAL_FILES):
+    if required - names:
         raise ValueError('Release has missing or unexpected files')
+    for group in OPTIONAL_GROUPS.values():
+        if names & group not in (set(), group):
+            raise ValueError('Release has missing or unexpected files')
     for sha in [value['bundle_sha256'], *value['files'].values()]:
         if not isinstance(sha, str) or not re.fullmatch('[0-9a-f]{64}', sha):
             raise ValueError('Invalid release checksum')
