@@ -67,20 +67,39 @@ On one tested PC, with a game running and the performance overlay switched off, 
 Quick Access menu and the menu behind the Steam button draw with visible glitches.
 With the overlay on, both menus draw normally.
 
-Two display settings cleared it on that machine, either one on its own:
+Three things cleared it on that machine, any one of them on its own:
 
 - Switch **Automatic Scale Image** off, then step back one setting.
 - Turn **HDR** on, after which Automatic Scale Image may stay on.
+- Select a lower resolution. At 1920x1080 nothing glitched in any combination tried:
+  Automatic Scale Image on or off, HDR on or off, VRR, and the overlay on at every level or
+  off.
 
-The tested display was 2560x1440 at 165 Hz over DisplayPort **with HDR off**. That same
-connection and mode is recorded as working with HDR on, so this is about the state the
-display is driven in rather than about the mode being unsupported.
+The tested display was 2560x1440 at 165 Hz over DisplayPort **with HDR off**. The same
+connection and mode is recorded as working with HDR on, so the state the display is driven in
+matters, and so does the resolution.
+
+**The refresh rate does not.** On that machine the same resolution at 60 Hz glitched exactly
+as it did at 165 Hz, so lowering the refresh rate is not worth trying. Lowering the resolution
+is, and so is turning HDR on.
+
+One thing to expect while trying resolutions: SteamOS offers only the modes a display declares
+in its EDID, while Windows also synthesises extra ones inside the range the display
+advertises. A resolution and refresh rate combination you can pick in Windows can simply be
+absent here. On the tested display, for instance, 1080p is offered at 60 Hz only, so choosing
+it changes the refresh rate as well.
 
 **Nothing this project builds is involved, so reinstalling or changing drivers will not
 help.** Each of these was tried on its own, with the machine rebooted so every component
 started normally, and the glitching was unchanged every time: the overlay SteamOS packages
 in place of this project's build, the Gamescope SteamOS packages in place of this project's
 build, an older installer integration, and a newer NVIDIA driver.
+
+The machine was also read while one of those menus was glitching, and again while the same
+menu was on screen and correct. The display mode, the scanout buffer, its format and its size
+were identical in both, and neither the kernel nor the compositor logged anything. So what
+differs is only how the frame is drawn, which is why no display setting other than the ones
+above makes any difference, and why there is nothing in a log to send anyone.
 
 The cause has not been established, and it may belong with the wider display
 investigation on the flicker and refresh rate report rather than on its own. If you see
