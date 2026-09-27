@@ -83,17 +83,18 @@ matters, and so does the resolution.
 as it did at 165 Hz, so lowering the refresh rate is not worth trying. Lowering the resolution
 is, and so is turning HDR on.
 
-One thing to expect while trying resolutions: SteamOS offers only the modes a display declares
-in its EDID, while Windows also synthesises extra ones inside the range the display
-advertises. A resolution and refresh rate combination you can pick in Windows can simply be
-absent here. On the tested display, for instance, 1080p is offered at 60 Hz only, so choosing
-it changes the refresh rate as well.
+One thing to expect while trying resolutions: SteamOS offers the modes a display declares in its
+EDID, so a resolution and refresh rate combination you can pick in Windows can simply be absent
+here. On the tested display the advertised list has no 1080p mode above 60 Hz, so choosing 1080p
+changes the refresh rate as well. Do not read a Windows setting as proof the cable carries it:
+Windows can render at one resolution and still transmit the display's native timing.
 
-**Nothing this project builds is involved, so reinstalling or changing drivers will not
-help.** Each of these was tried on its own, with the machine rebooted so every component
-started normally, and the glitching was unchanged every time: the overlay SteamOS packages
-in place of this project's build, the Gamescope SteamOS packages in place of this project's
-build, an older installer integration, and a newer NVIDIA driver.
+**Reinstalling or changing drivers will not help.** Each of these was tried on its own, with
+the machine rebooted so every component started normally, and the glitching was unchanged every
+time: the overlay SteamOS packages in place of this project's build, the Gamescope SteamOS
+packages in place of this project's build, an older installer integration, and a newer NVIDIA
+driver. So it is not caused by the builds this project patches, which is as far as those tests
+reach: they do not clear every part of the session on their own.
 
 The machine was also read while one of those menus was glitching, and again while the same
 menu was on screen and correct. The display mode, the scanout buffer, its format and its size
