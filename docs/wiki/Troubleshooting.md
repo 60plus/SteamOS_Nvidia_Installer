@@ -74,6 +74,8 @@ Three things cleared it on that machine, any one of them on its own:
 - Select a lower resolution. At 1920x1080 nothing glitched in any combination tried:
   Automatic Scale Image on or off, HDR on or off, VRR, and the overlay on at every level or
   off.
+- Move the mouse. This clears it only while the pointer keeps moving, so it is a check rather
+  than a fix, but it is the fastest way to tell whether you are seeing this particular fault.
 
 The tested display was 2560x1440 at 165 Hz over DisplayPort **with HDR off**. The same
 connection and mode is recorded as working with HDR on, so the state the display is driven in
@@ -101,6 +103,13 @@ menu was on screen and correct. The display mode, the scanout buffer, its format
 were identical in both, and neither the kernel nor the compositor logged anything. So what
 differs is only how the frame is drawn, which is why no display setting other than the ones
 above makes any difference, and why there is nothing in a log to send anyone.
+
+Everything that clears it has one thing in common: it keeps the compositor drawing. The
+performance overlay updates its numbers every frame, and a moving mouse pointer moves every
+frame. That points at a frame not being redrawn when it should be, rather than at anything being
+wrong with your display or your drivers, and it matches an upstream report against unmodified
+Gamescope on NVIDIA, [gamescope#1964](https://github.com/ValveSoftware/gamescope/issues/1964),
+where moving the mouse clears the same kind of corruption until the pointer hides again.
 
 The cause has not been established, and it may belong with the wider display
 investigation on the flicker and refresh rate report rather than on its own. If you see
