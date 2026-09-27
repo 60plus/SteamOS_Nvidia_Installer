@@ -76,10 +76,11 @@ The tested display was 2560x1440 at 165 Hz over DisplayPort **with HDR off**. Th
 connection and mode is recorded as working with HDR on, so this is about the state the
 display is driven in rather than about the mode being unsupported.
 
-This is not caused by this project's overlay or by a particular installer version. The
-same glitching appears with the overlay packaged by SteamOS in place of this project's
-build, and on an older installer integration, so a different installer version will not
-change it.
+**Nothing this project builds is involved, so reinstalling or changing drivers will not
+help.** Each of these was tried on its own, with the machine rebooted so every component
+started normally, and the glitching was unchanged every time: the overlay SteamOS packages
+in place of this project's build, the Gamescope SteamOS packages in place of this project's
+build, an older installer integration, and a newer NVIDIA driver.
 
 The cause has not been established, and it may belong with the wider display
 investigation on the flicker and refresh rate report rather than on its own. If you see
