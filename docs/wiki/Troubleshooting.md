@@ -61,6 +61,31 @@ Start with a standard refresh rate and temporarily disable VRR and HDR through t
 
 Test another cable and port separately. Record HDMI versus DisplayPort, monitor or TV model, resolution, refresh rate and scaling. Do not apply several compositor environment variables at once.
 
+## Game Mode menus glitch when the performance overlay is off
+
+On one tested PC, with a game running and the performance overlay switched off, the
+Quick Access menu and the menu behind the Steam button draw with visible glitches.
+With the overlay on, both menus draw normally.
+
+Two display settings cleared it on that machine, either one on its own:
+
+- Switch **Automatic Scale Image** off, then step back one setting.
+- Turn **HDR** on, after which Automatic Scale Image may stay on.
+
+The tested display was 2560x1440 at 165 Hz over DisplayPort **with HDR off**. That same
+connection and mode is recorded as working with HDR on, so this is about the state the
+display is driven in rather than about the mode being unsupported.
+
+This is not caused by this project's overlay or by a particular installer version. The
+same glitching appears with the overlay packaged by SteamOS in place of this project's
+build, and on an older installer integration, so a different installer version will not
+change it.
+
+The cause has not been established, and it may belong with the wider display
+investigation on the flicker and refresh rate report rather than on its own. If you see
+this, record the display, the connection, the resolution and refresh rate, whether HDR
+and Automatic Scale Image were on, and whether either workaround helped.
+
 ## Black border around Game Mode notifications
 
 Steam notifications can have an opaque black background in Game Mode and in
