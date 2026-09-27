@@ -88,8 +88,12 @@ Other things that were tried, with what they actually showed:
 - Turning **GPU accelerated rendering in web views** off removed the corruption on the tested
   machine and made the menus very slow. That setting changes several parts of rendering at once,
   so the result is a comparison rather than a diagnosis, and it is not a setting to keep.
-- A **lower output resolution** was clean. On this display 1080p is only offered at 60 Hz, so that
-  test changes the refresh rate as well and does not isolate the resolution.
+- A **lower output resolution is not a workaround, and on the tested machine it turned out worse.**
+  At 1080p60 the corruption also appeared in the main Steam interface with no game running at all,
+  which never happened at 2560x1440. An earlier version of this page reported a lower resolution as
+  clean, on a short look that did not include the menus. The likely reason is that the smaller the
+  output, the more of the interface is exactly output sized, and output sized layers are the ones
+  that qualify for a hardware plane.
 
 **What did not help, and what that does and does not prove.** Each of these was tried on its own
 with the machine rebooted so every component started normally, and the corruption was unchanged:
