@@ -63,11 +63,13 @@ Test another cable and port separately. Record HDMI versus DisplayPort, monitor 
 
 ## Game Mode menus glitch when the performance overlay is off
 
-On one tested PC, with a game running and the performance overlay switched off, the
-Quick Access menu and the menu behind the Steam button draw with visible glitches.
-With the overlay on, both menus draw normally.
+On one tested PC, with a game running and the performance overlay switched off, opening the
+Quick Access menu or the menu behind the Steam button leaves the screen corrupted. **The menu
+panel itself draws correctly.** What breaks is everything around and behind it: instead of the
+game you get stale pieces of the interface, black rectangles, coloured bands and speckle. With
+the overlay on, both menus behave normally.
 
-Three things cleared it on that machine, any one of them on its own:
+Five things cleared it on that machine, any one of them on its own:
 
 - Switch **Automatic Scale Image** off, then step back one setting.
 - Turn **HDR** on, after which Automatic Scale Image may stay on.
@@ -76,6 +78,9 @@ Three things cleared it on that machine, any one of them on its own:
   off.
 - Move the mouse. This clears it only while the pointer keeps moving, so it is a check rather
   than a fix, but it is the fastest way to tell whether you are seeing this particular fault.
+- Turn **GPU accelerated rendering in web views** off, in Steam's interface settings. On the
+  tested machine this removed the corruption completely, and made the menus **very slow**, so
+  treat it as a way to confirm the cause rather than as a setting to keep.
 
 The tested display was 2560x1440 at 165 Hz over DisplayPort **with HDR off**. The same
 connection and mode is recorded as working with HDR on, so the state the display is driven in
@@ -104,12 +109,20 @@ were identical in both, and neither the kernel nor the compositor logged anythin
 differs is only how the frame is drawn, which is why no display setting other than the ones
 above makes any difference, and why there is nothing in a log to send anyone.
 
-Everything that clears it has one thing in common: it keeps the compositor drawing. The
-performance overlay updates its numbers every frame, and a moving mouse pointer moves every
-frame. That points at a frame not being redrawn when it should be, rather than at anything being
-wrong with your display or your drivers, and it matches an upstream report against unmodified
-Gamescope on NVIDIA, [gamescope#1964](https://github.com/ValveSoftware/gamescope/issues/1964),
-where moving the mouse clears the same kind of corruption until the pointer hides again.
+What is known, and what is not. Those menus are drawn by Steam as **web views**, and their images
+reach the compositor through GPU buffer sharing. Turning that path off removes the corruption
+completely on the tested machine, so the fault **depends on** it. That is not the same as knowing
+which component is at fault: switching the setting changes drawing, allocation, timing and
+synchronisation all at once, and the faulty part has not been located. It is listed above even though
+it is too slow to keep.
+
+Anything that keeps the compositor drawing hides the damage before it can be seen, which is why
+the performance overlay, whose numbers change every frame, and a moving mouse pointer both clear
+it, while a notification appearing does not. An upstream report describes the same behaviour on
+unmodified Gamescope with NVIDIA,
+[gamescope#1964](https://github.com/ValveSoftware/gamescope/issues/1964), including that it is
+clean while the cursor is active, that it survives disabling hardware cursors, and that older
+drivers behave better.
 
 The cause has not been established, and it may belong with the wider display
 investigation on the flicker and refresh rate report rather than on its own. If you see
