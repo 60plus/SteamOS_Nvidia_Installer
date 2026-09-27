@@ -61,73 +61,64 @@ Start with a standard refresh rate and temporarily disable VRR and HDR through t
 
 Test another cable and port separately. Record HDMI versus DisplayPort, monitor or TV model, resolution, refresh rate and scaling. Do not apply several compositor environment variables at once.
 
-## Game Mode menus glitch when the performance overlay is off
+## Game Mode menu corruption with particular display settings
 
-On one tested PC, with a game running and the performance overlay switched off, opening the
-Quick Access menu or the menu behind the Steam button leaves the screen corrupted. **The menu
-panel itself draws correctly.** What breaks is everything around and behind it: instead of the
-game you get stale pieces of the interface, black rectangles, coloured bands and speckle. With
-the overlay on, both menus behave normally.
+On one tested PC, with a game running and the performance overlay off, opening the Quick Access
+menu or the menu behind the Steam button leaves large parts of the screen corrupted. The upper
+part of the menu stays readable while much of the area around it does not: displaced and repeated
+fragments of the interface, black rectangles, coloured bands and speckle. In one case much of the
+game behind it remained legible, in another almost none of it did.
 
-Five things cleared it on that machine, any one of them on its own:
+**Three settings each avoided it on that machine, any one of them on its own.** Two of them work
+with the performance overlay switched off, so none of the three is the defining one:
 
-- Switch **Automatic Scale Image** off, then step back one setting.
-- Turn **HDR** on, after which Automatic Scale Image may stay on.
-- Select a lower resolution. At 1920x1080 nothing glitched in any combination tried:
-  Automatic Scale Image on or off, HDR on or off, VRR, and the overlay on at every level or
-  off.
-- Move the mouse. This clears it only while the pointer keeps moving, so it is a check rather
-  than a fix, but it is the fastest way to tell whether you are seeing this particular fault.
-- Turn **GPU accelerated rendering in web views** off, in Steam's interface settings. On the
-  tested machine this removed the corruption completely, and made the menus **very slow**, so
-  treat it as a way to confirm the cause rather than as a setting to keep.
+- Turn the **performance overlay on**, at any level.
+- In Display settings, turn **Automatically Scale Image** off and move the slider that appears one
+  step below its maximum. Leave `Automatically Scale User Interface` alone. The cost is a few
+  pixels of black border around the image.
+- Turn **HDR on**. Observed on the tested DisplayPort connection. This is not a general
+  recommendation: this project records separate HDMI HDR problems, and new display profiles
+  deliberately start with HDR off.
 
-The tested display was 2560x1440 at 165 Hz over DisplayPort **with HDR off**. The same
-connection and mode is recorded as working with HDR on, so the state the display is driven in
-matters, and so does the resolution.
+Other things that were tried, with what they actually showed:
 
-**The refresh rate does not.** On that machine the same resolution at 60 Hz glitched exactly
-as it did at 165 Hz, so lowering the refresh rate is not worth trying. Lowering the resolution
-is, and so is turning HDR on.
+- **Moving the mouse** clears it while the pointer keeps moving, and it returns once the pointer
+  hides. That makes it a quick way to recognise this fault rather than a fix, and it is not a
+  unique fingerprint.
+- Turning **GPU accelerated rendering in web views** off removed the corruption on the tested
+  machine and made the menus very slow. That setting changes several parts of rendering at once,
+  so the result is a comparison rather than a diagnosis, and it is not a setting to keep.
+- A **lower output resolution** was clean. On this display 1080p is only offered at 60 Hz, so that
+  test changes the refresh rate as well and does not isolate the resolution.
 
-One thing to expect while trying resolutions: SteamOS offers the modes a display declares in its
-EDID, so a resolution and refresh rate combination you can pick in Windows can simply be absent
-here. On the tested display the advertised list has no 1080p mode above 60 Hz, so choosing 1080p
-changes the refresh rate as well. Do not read a Windows setting as proof the cable carries it:
-Windows can render at one resolution and still transmit the display's native timing.
+**What did not help, and what that does and does not prove.** Each of these was tried on its own
+with the machine rebooted so every component started normally, and the corruption was unchanged:
+the overlay SteamOS packages in place of this project's build, the Gamescope SteamOS packages in
+place of this project's build, an older integration version, and a newer NVIDIA driver. So the
+symptom reproduces with the distribution's own builds and is not created by this project's patched
+ones. It does not follow that reinstalling or changing drivers can never help anyone: these were
+particular substitutions on one machine, and reports elsewhere describe older drivers behaving
+better.
 
-**Reinstalling or changing drivers will not help.** Each of these was tried on its own, with
-the machine rebooted so every component started normally, and the glitching was unchanged every
-time: the overlay SteamOS packages in place of this project's build, the Gamescope SteamOS
-packages in place of this project's build, an older installer integration, and a newer NVIDIA
-driver. So it is not caused by the builds this project patches, which is as far as those tests
-reach: they do not clear every part of the session on their own.
+**The failing component is not known.** The machine was read while one of those menus was
+corrupted and again while the same menu was on screen and correct: the display mode, the
+framebuffer identifier, its dimensions and its format were the same in both, and no relevant
+errors appeared in the logs examined. That comparison does not look at the pixels, the source
+surface, synchronisation or buffer lifetime, so it narrows where to look rather than settling it.
 
-The machine was also read while one of those menus was glitching, and again while the same
-menu was on screen and correct. The display mode, the scanout buffer, its format and its size
-were identical in both, and neither the kernel nor the compositor logged anything. So what
-differs is only how the frame is drawn, which is why no display setting other than the ones
-above makes any difference, and why there is nothing in a log to send anyone.
+Two further observations from the same machine, scoped to it. At 2560x1440 the corruption behaved
+the same at 60 Hz as at 165 Hz, which says that reducing the rate between those two modes did not
+help here, not that timing is irrelevant. And SteamOS offers the modes a display declares, so a
+resolution and refresh rate combination available in Windows can be absent here; on this display no
+1080p mode above 60 Hz was offered.
 
-What is known, and what is not. Those menus are drawn by Steam as **web views**, and their images
-reach the compositor through GPU buffer sharing. Turning that path off removes the corruption
-completely on the tested machine, so the fault **depends on** it. That is not the same as knowing
-which component is at fault: switching the setting changes drawing, allocation, timing and
-synchronisation all at once, and the faulty part has not been located. It is listed above even though
-it is too slow to keep.
-
-Anything that keeps the compositor drawing hides the damage before it can be seen, which is why
-the performance overlay, whose numbers change every frame, and a moving mouse pointer both clear
-it, while a notification appearing does not. An upstream report describes the same behaviour on
-unmodified Gamescope with NVIDIA,
+An upstream report describes the same kind of corruption with unmodified Gamescope on NVIDIA,
 [gamescope#1964](https://github.com/ValveSoftware/gamescope/issues/1964), including that it is
-clean while the cursor is active, that it survives disabling hardware cursors, and that older
-drivers behave better.
+clean while the cursor is active and that older drivers behaved better.
 
-The cause has not been established, and it may belong with the wider display
-investigation on the flicker and refresh rate report rather than on its own. If you see
-this, record the display, the connection, the resolution and refresh rate, whether HDR
-and Automatic Scale Image were on, and whether either workaround helped.
+If you see this, report the display, the connection, the resolution and refresh rate, whether HDR
+is on, the two scaling settings, **which of the workarounds above you tried and what each one
+did**, your driver and Gamescope versions, and a log with the time you reproduced it.
 
 ## Black border around Game Mode notifications
 
