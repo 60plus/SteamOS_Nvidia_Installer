@@ -134,15 +134,27 @@ pc_install_display_policy() {
 ExecStartPre=/usr/bin/python3 /usr/lib/steamos-nvidia/hdr-defaults.py
 HDR_SERVICE
   if [[ -f "$root/usr/lib/steamos-nvidia/notification-renderer.py" ]]; then
-    cat > "$root/usr/lib/systemd/user/steam-launcher.service.d/25-nvidia-notifications.conf" <<'NOTIFICATION_SERVICE'
+    # Both launchers, because Steam starts as steam-launcher.service in Game Mode and
+    # as an instance of app-steam@.service from the desktop, and the workaround has to
+    # be reapplied after every client verification in either one. The relationship is
+    # declared here rather than in the worker: the desktop instance name is chosen at
+    # launch, so no unit can name it. Wants pulls the worker in, Before orders it after
+    # the launcher, and PropagatesStopTo clears RemainAfterExit when Steam stops so the
+    # next start runs it again. A systemd too old for that last key ignores it with a
+    # log line and only loses the reapplication, which is where this started.
+    local launcher
+    for launcher in steam-launcher.service 'app-steam@.service'; do
+      mkdir -p "$root/usr/lib/systemd/user/$launcher.d"
+      cat > "$root/usr/lib/systemd/user/$launcher.d/25-nvidia-notifications.conf" <<'NOTIFICATION_SERVICE'
 [Unit]
 Wants=steamos-nvidia-notifications.service
+Before=steamos-nvidia-notifications.service
+PropagatesStopTo=steamos-nvidia-notifications.service
 NOTIFICATION_SERVICE
+    done
     cat > "$root/usr/lib/systemd/user/steamos-nvidia-notifications.service" <<'NOTIFICATION_WORKER'
 [Unit]
 Description=Apply verified Steam notification workaround after client verification
-After=steam-launcher.service
-PartOf=steam-launcher.service
 
 [Service]
 Type=oneshot
@@ -343,7 +355,7 @@ pc_write_addon_manifest() {
     usr/share/applications/steamos-nvidia-safe-graphics.desktop \
     usr/share/applications/steamos-nvidia-normal-graphics.desktop) > "$root/usr/lib/steamos-nvidia/addons.sha256"
   if [[ -f "$root/usr/lib/steamos-nvidia/notification-renderer.py" ]]; then
-    (cd "$root" && sha256sum usr/lib/steamos-nvidia/notification-renderer.py usr/lib/systemd/user/steam-launcher.service.d/25-nvidia-notifications.conf usr/lib/systemd/user/steamos-nvidia-notifications.service) >> "$root/usr/lib/steamos-nvidia/addons.sha256" || return 1
+    (cd "$root" && sha256sum usr/lib/steamos-nvidia/notification-renderer.py usr/lib/systemd/user/steam-launcher.service.d/25-nvidia-notifications.conf 'usr/lib/systemd/user/app-steam@.service.d/25-nvidia-notifications.conf' usr/lib/systemd/user/steamos-nvidia-notifications.service) >> "$root/usr/lib/steamos-nvidia/addons.sha256" || return 1
   fi
   if [[ -d "$root/usr/lib/steamos-nvidia/nvenc" ]]; then
     (cd "$root" && find usr/lib/steamos-nvidia/nvenc -type f -print0 | sort -z | xargs -0 sha256sum && sha256sum usr/lib32/dri/nvidia_drv_video.so usr/lib/systemd/user/steamos-nvidia-nvenc.service usr/lib/systemd/user/steam-launcher.service.d/45-nvidia-nvenc.conf 'usr/lib/systemd/user/app-steam@.service.d/45-nvidia-nvenc.conf') >> "$root/usr/lib/steamos-nvidia/addons.sha256" || return 1

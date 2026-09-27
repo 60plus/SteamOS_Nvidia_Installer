@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import unittest
@@ -70,3 +71,45 @@ class CompatibilityTests(unittest.TestCase):
         result = m.compatible_versions(['610.43.03-5', '610.43.03-4'], [('2D05', '1043', '0001')], fetch)
         self.assertEqual(len(result), 2)
         self.assertEqual(calls, ['610.43.03'])
+
+
+class ProjectTestedDriversAreNotJustNvidiaMatches(unittest.TestCase):
+    """The chooser offers ten driver versions and used to mark them all the same.
+
+    NVIDIA documenting a GPU in a driver's range says nothing about whether this
+    project ever booted that driver, and the green marker read as if it did. The
+    tested set lives in this script because the script travels in the signed bundle
+    and reaches installed systems, while config/build-baselines.json is a build input
+    that never leaves the workshop, so a test has to hold the two in step.
+    """
+
+    def baseline(self):
+        path = Path(__file__).resolve().parents[1] / 'config/build-baselines.json'
+        return json.loads(path.read_text(encoding='utf-8'))['tested_driver']
+
+    def test_the_tested_set_matches_the_build_baseline(self):
+        self.assertIn(self.baseline(), m.TESTED_DRIVERS,
+                      'the driver the image is built with has to be marked as tested')
+        for version in m.TESTED_DRIVERS:
+            with self.subTest(version=version):
+                self.assertRegex(version, r'^[0-9]+(?:\.[0-9]+)+-[0-9]+(?:\.[0-9]+)*$')
+
+    def test_a_tested_and_an_untested_version_do_not_look_alike(self):
+        tested = self.baseline()
+        rows, note = m.chooser_rows([(tested, 'RTX 50'), ('999.99.99-1', 'RTX 50')])
+        self.assertEqual(6, len(rows))
+        self.assertIn('tested by this project', rows[2])
+        self.assertIn('untested here', rows[5])
+        self.assertNotEqual(rows[2], rows[5], 'the two claims must not share a marker')
+        self.assertIn(tested, note)
+
+    def test_when_nothing_offered_was_tested_the_note_says_so(self):
+        rows, note = m.chooser_rows([('999.99.99-1', 'RTX 50'), ('999.99.98-1', 'RTX 50')])
+        self.assertIn('untested here', rows[2])
+        self.assertIn('untested here', rows[5])
+        self.assertIn('None of the versions offered here', note)
+        self.assertIn(self.baseline(), note, 'the note has to name what was tested instead')
+
+    def test_the_note_never_claims_a_version_that_is_not_offered(self):
+        _, note = m.chooser_rows([(self.baseline(), 'RTX 50')])
+        self.assertNotIn('None of the versions', note)

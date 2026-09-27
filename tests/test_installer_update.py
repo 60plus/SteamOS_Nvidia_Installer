@@ -87,6 +87,16 @@ class SteamosCompatibilityIsRecordedNotEnforced(unittest.TestCase):
     def test_a_newer_series_passes_too(self):
         self.assertIn('3.9.1', self.warn('3.9.1'))
 
+    def test_the_judgement_precedes_any_work_on_the_other_slot(self):
+        # A refusal is only worth anything if nothing has been written yet. The
+        # install path has to judge the running system before it hands the
+        # transaction to driver-change, which clones the root into the other slot.
+        source = (Path(__file__).parents[1] / 'scripts/installer-update.py').read_text(encoding='utf-8')
+        self.assertEqual(1, source.count('check_steamos(d.manifest()'))
+        self.assertEqual(1, source.count('d.install('))
+        self.assertLess(source.index('check_steamos(d.manifest()'), source.index('d.install('),
+                        'the version judgement has to come before the slot is prepared')
+
     def test_older_than_anything_tested_is_refused_and_names_the_oldest(self):
         with self.assertRaises(ValueError) as refusal:
             self.warn('3.8.15')
@@ -122,7 +132,7 @@ class InstallerUpdate(unittest.TestCase):
             with self.assertRaises(ValueError):
                 m.read_bundle(path, value)
 
-    def test_manifest_rejects_unknown_fields_and_invalid_versions(self):
+    def test_manifest_rejects_a_newer_format_and_invalid_values(self):
         for changed in [dict(format=2), dict(version='../bad'), dict(steamos=['*']),
                         dict(files={'../../etc/passwd':'0'*64}), dict(bundle_sha256='bad')]:
             with self.subTest(changed=changed), self.assertRaises(ValueError):
@@ -232,3 +242,98 @@ class InstallerUpdate(unittest.TestCase):
             m.verify_target_device('/target',lambda *a:'/dev/vda5[/]')
             with self.assertRaises(ValueError):m.verify_target_device('/target',lambda *a:'/dev/vda4')
             with self.assertRaises(ValueError):m.verify_target_device('/target',lambda *a:'overlay')
+
+
+class TheBundleCanGainFilesWithoutStrandingAnyone(unittest.TestCase):
+    """A release may carry files an installed version does not know about.
+
+    Measured on 2026-09-26: an installed tool validates a new release against the
+    file list it was built with, so a manifest naming one unknown file was refused
+    whole with `Release has missing or unexpected files`. The update window only
+    ever offers the latest release, so the first release to add a file would have
+    stranded every older installation. The list could therefore never change, which
+    is why the notification renderer could not be fixed by an update at all.
+
+    Unknown names and unknown fields are now ignored and named. `format` stays
+    strict, so a change that must not be half applied can still refuse cleanly.
+    """
+
+    def manifest_with(self, **files):
+        value = manifest()
+        return dict(value, files={**value['files'], **files})
+
+    def quietly(self, call, *args):
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            result = call(*args)
+        return result, captured.getvalue()
+
+    def validated(self, value):
+        # The note belongs to the assertion that looks for it, not to every other
+        # test's output.
+        return self.quietly(m.validate_manifest, value)[0]
+
+    def test_an_unknown_file_is_accepted_and_named(self):
+        _, said = self.quietly(m.validate_manifest, self.manifest_with(**{'notification-renderer.py': '0' * 64}))
+        self.assertIn('notification-renderer.py', said)
+        self.assertIn('does not install', said)
+
+    def test_an_unknown_field_is_ignored_but_a_newer_format_is_refused(self):
+        m.validate_manifest(dict(manifest(), requires_tool='0.1.9'))
+        with self.assertRaises(ValueError):
+            m.validate_manifest(dict(manifest(), format=2))
+
+    def test_a_file_this_version_requires_is_still_mandatory(self):
+        value = manifest()
+        del value['files']['pc-support.sh']
+        with self.assertRaises(ValueError):
+            m.validate_manifest(value)
+
+    def test_an_unreasonable_name_or_count_is_refused(self):
+        with self.assertRaises(ValueError):
+            m.validate_manifest(self.manifest_with(**{'../outside': '0' * 64}))
+        with self.assertRaises(ValueError):
+            m.validate_manifest(self.manifest_with(**{f'extra{i}': '0' * 64 for i in range(m.MAX_FILES)}))
+
+    def bundle(self, folder, value, contents):
+        path = Path(folder) / 'bundle.tar'
+        with tarfile.open(path, 'w') as archive:
+            for name in value['files']:
+                data = contents.get(name, b'test')
+                member = tarfile.TarInfo(name)
+                member.size = len(data)
+                archive.addfile(member, io.BytesIO(data))
+        value['bundle_sha256'] = m.digest(path.read_bytes())
+        return path
+
+    def test_an_unknown_member_is_checked_but_not_handed_back_to_be_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            value = self.manifest_with(**{'notification-renderer.py': m.digest(b'newer')})
+            path = self.bundle(tmp, value, {'notification-renderer.py': b'newer'})
+            payload, _ = self.quietly(m.read_bundle, path, self.validated(value))
+            self.assertEqual(set(m.FILES), set(payload))
+            self.assertNotIn('notification-renderer.py', payload)
+
+    def test_an_unknown_member_that_does_not_match_breaks_the_whole_release(self):
+        # The signature covers every name in the manifest, so a member that does not
+        # match is a broken release even if this version would not install it.
+        with tempfile.TemporaryDirectory() as tmp:
+            value = self.manifest_with(**{'notification-renderer.py': '1' * 64})
+            path = self.bundle(tmp, value, {})
+            with self.assertRaises(ValueError):
+                self.quietly(m.read_bundle, path, self.validated(value))
+
+    def test_an_unknown_name_the_archive_omits_breaks_the_whole_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            value = self.manifest_with(**{'notification-renderer.py': m.digest(b'newer')})
+            self.bundle(tmp, value, {'notification-renderer.py': b'newer'})
+            missing = dict(value)
+            path = Path(tmp) / 'bundle.tar'
+            with tarfile.open(path, 'w') as archive:
+                for name in [n for n in value['files'] if n != 'notification-renderer.py']:
+                    member = tarfile.TarInfo(name)
+                    member.size = 4
+                    archive.addfile(member, io.BytesIO(b'test'))
+            missing['bundle_sha256'] = m.digest(path.read_bytes())
+            with self.assertRaises(ValueError):
+                self.quietly(m.read_bundle, path, self.validated(missing))

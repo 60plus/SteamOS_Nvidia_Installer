@@ -299,9 +299,26 @@ Game Mode HDR output is off. This does not disable HDR for local games.
 
 The repair hook copies and verifies the artifact in the updated A/B slot and
 recreates the service configuration. Installer Update does not yet distribute this
-optional binary artifact. To disable the receiver policy for diagnosis, set
-`STEAMOS_NVIDIA_REMOTE_PLAY=0` in a user override for `steam-launcher.service`, then
-restart Game Mode. Hardware testing is required after installing a new image.
+optional binary artifact.
+
+Steam runs under two different user services, and the policy is applied to both:
+`steam-launcher.service` in Game Mode, and an instance of `app-steam@.service` when
+Steam starts from the desktop. The desktop instance name is chosen at launch, so a
+user override has to be placed on the template. To disable the receiver policy for
+diagnosis, set `STEAMOS_NVIDIA_REMOTE_PLAY=0` in a user override for **both**
+launchers, then restart Steam in the mode you are testing:
+
+```bash
+for unit in steam-launcher.service app-steam@.service; do
+  mkdir -p ~/.config/systemd/user/$unit.d
+  printf '[Service]\nEnvironment=STEAMOS_NVIDIA_REMOTE_PLAY=0\n' > ~/.config/systemd/user/$unit.d/90-disable-remote-play.conf
+done
+systemctl --user daemon-reload
+```
+
+Remove both files and reload again to restore the policy. Before 0.1.7 only the Game
+Mode launcher carried the policy, so an override on that unit alone was enough; it no
+longer is. Hardware testing is required after installing a new image.
 
 ## NVENC encoding from a 32-bit Steam host
 
@@ -313,8 +330,13 @@ or VAAPI H264 even though encoding is performed by NVIDIA hardware.
 
 The artifact is stored in `/usr/lib/steamos-nvidia/nvenc`. Its 32-bit driver is
 installed at `/usr/lib32/dri/nvidia_drv_video.so`. The user service
-`steamos-nvidia-nvenc.service` starts with `steam-launcher.service` and uses a socket
-inside the user's runtime directory. No network listener or root daemon is added.
+`steamos-nvidia-nvenc.service` starts with either Steam launcher,
+`steam-launcher.service` in Game Mode or an instance of `app-steam@.service` from the
+desktop, and uses a socket inside the user's runtime directory. The desktop drop-in
+also removes `LIBVA_DRIVER_NAME` from Steam's environment, because the desktop session
+inherits Valve's AMD default from `/etc/profile.d/libva.sh` and Game Mode never sets
+it at all. Without that, Steam on the desktop looked for an AMD driver and encoded in
+software. No network listener or root daemon is added.
 Steam can fall back to software encoding if the optional service is unavailable.
 
 The 64-bit receiver keeps its separate decoder and NV12 color correction. The
@@ -370,8 +392,10 @@ assets (Stable build 1788652215 and Beta build 1789781627), the helper
 selects the client's existing embedded toast renderer instead of the separate
 notification BrowserView. It does not filter pixels or disable notifications.
 
-A user service starts with `steam-launcher.service` and waits up to 120 seconds
-for the main Steam browser process. It accepts
+A user service starts with either Steam launcher, in Game Mode and from the desktop
+alike, and waits up to 120 seconds for the main Steam browser process. It is applied
+again whenever Steam restarts, because a client verification can restore the original
+asset at any time. It accepts
 only a complete SHA-256 hash from its list of reviewed JavaScript assets, verifies a single
 known replacement, saves the original under
 `~/.local/state/steamos-nvidia/notifications/`, then replaces the asset atomically.

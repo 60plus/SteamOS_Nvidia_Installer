@@ -12,7 +12,7 @@
 --- a/src/app/main.cpp
 +++ b/src/app/main.cpp
 @@ -373,6 +373,24 @@
- 
+
      HUDElements.vendorID = vendorID;
      init_system_info();
 +    // Use the active OpenGL renderer and CPU reported by the operating system.
@@ -38,26 +38,27 @@
      std::thread(ctrl_thread).detach();
 --- a/src/hud_elements.cpp
 +++ b/src/hud_elements.cpp
-@@ -285,6 +285,13 @@
+@@ -285,6 +285,15 @@
      if (HUDElements.params->enabled[OVERLAY_PARAM_ENABLED_gpu_stats] && gpus){
          for (auto& gpu : gpus->selected_gpus()) {
              ImguiNextColumnFirstItem();
-+            if (HUDElements.params->enabled[OVERLAY_PARAM_ENABLED_mangoapp_steam] &&
-+                (current_preset == 3 || current_preset == 4) &&
-+                gpus->selected_gpus().size() == 1 && !HUDElements.sw_stats->hardwareGpuLabel.empty()) {
++            // Only the mangoapp build fills these labels, so a non-empty label is the
++            // gate. An earlier version also required mangoapp_steam, which Steam used
++            // to set and stopped setting, and which preset 4 clears through full.
++            if ((current_preset == 3 || current_preset == 4) && gpus->selected_gpus().size() == 1 &&
++                !HUDElements.sw_stats->hardwareGpuLabel.empty()) {
 +                HUDElements.TextColored(HUDElements.colors.gpu, "%s", HUDElements.sw_stats->hardwareGpuLabel.c_str());
 +                ImGui::TableNextRow();
 +                ImguiNextColumnFirstItem();
 +            }
              HUDElements.TextColored(HUDElements.colors.gpu, "%s", gpu->gpu_text().c_str());
- 
+
              ImguiNextColumnOrNewRow();
-@@ -421,6 +428,12 @@
+@@ -421,6 +430,11 @@
  void HudElements::cpu_stats(){
      if(HUDElements.params->enabled[OVERLAY_PARAM_ENABLED_cpu_stats]){
          ImguiNextColumnFirstItem();
-+        if (HUDElements.params->enabled[OVERLAY_PARAM_ENABLED_mangoapp_steam] &&
-+            (current_preset == 3 || current_preset == 4) && !HUDElements.sw_stats->hardwareCpuLabel.empty()) {
++        if ((current_preset == 3 || current_preset == 4) && !HUDElements.sw_stats->hardwareCpuLabel.empty()) {
 +            HUDElements.TextColored(HUDElements.colors.cpu, "%s", HUDElements.sw_stats->hardwareCpuLabel.c_str());
 +            ImGui::TableNextRow();
 +            ImguiNextColumnFirstItem();

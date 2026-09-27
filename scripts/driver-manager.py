@@ -13,6 +13,12 @@ import sys
 
 BASE = Path(__file__).resolve().parent
 TOOL = '/usr/bin/steamos-nvidia-driver'
+# Driver package versions this project has built and accepted on hardware. NVIDIA
+# documenting a GPU in a driver's range is not the same claim, and the chooser used
+# to show the same green marker for both. Kept here because this file travels in the
+# signed bundle and reaches installed systems, while config/build-baselines.json is a
+# build input that never does. A test holds the two in step.
+TESTED_DRIVERS = ('610.57.04-1',)
 
 
 def dialog(kind, text, *options):
@@ -90,6 +96,29 @@ def compatible_versions(candidates, devices, fetch):
     return [(v, summaries[v.rsplit('-', 1)[0]]) for v in candidates if summaries[v.rsplit('-', 1)[0]]]
 
 
+def chooser_rows(compatible):
+    """Separate what NVIDIA documents from what this project has actually run.
+
+    Every row used to carry the same green marker, which reads as an endorsement of
+    ten driver versions nobody here has ever booted. NVIDIA documenting a GPU in a
+    driver's range and this project having built and accepted that driver are two
+    different claims, and they now look different. When nothing offered has been
+    tested here, the note says so rather than leaving the reader to infer it.
+    """
+    rows = [cell for version, families in compatible
+            for cell in (version, families,
+                         '🟢 GPU match, tested by this project' if version in TESTED_DRIVERS
+                         else '🟡 GPU match (NVIDIA), untested here')]
+    tested = [v for v in TESTED_DRIVERS if v in [version for version, _ in compatible]]
+    if tested:
+        note = ('\nOnly ' + ', '.join(tested) + ' has been built and tested by this project. '
+                'The others are offered because NVIDIA documents your GPU in their range.')
+    else:
+        note = ('\nNone of the versions offered here has been tested by this project, which tested '
+                + ', '.join(TESTED_DRIVERS) + '. Anything you choose here is untested with these tools.')
+    return rows, note
+
+
 def worker(action, version):
     if action == 'install' and not re.fullmatch(r'[0-9]+(?:\.[0-9]+)+-[0-9]+(?:\.[0-9]+)*', version):
         raise ValueError('Invalid package version.')
@@ -154,9 +183,8 @@ def main():
         available = [v for v, _ in compatible]
         if not available:
             raise ValueError('No verified driver match was found among the ten latest complete package sets. Check your network. This manager supports GeForce GTX 16 and RTX GPUs; missing NVIDIA support data is not treated as compatibility.')
-        rows = [cell for version, families in compatible
-                for cell in (version, families, '🟢 GPU match (NVIDIA)')]
-        selected = dialog('--list', 'Current driver: ' + current + '\nShowing NVIDIA-documented matches for your GPU. Families below describe the driver range, not a guarantee for every model or SteamOS setup.',
+        rows, note = chooser_rows(compatible)
+        selected = dialog('--list', 'Current driver: ' + current + '\nShowing NVIDIA-documented matches for your GPU. Families below describe the driver range, not a guarantee for every model or SteamOS setup.' + note,
                           '--width', '1000', '--height', '540', '--column', 'Version', '--column', 'GPU families (NVIDIA)', '--column', 'Your GPU', *rows)
         if selected.returncode:
             return 0

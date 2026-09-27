@@ -258,11 +258,19 @@ The version list has three columns:
 |---|---|
 | Version | The exact driver package version to install. |
 | GPU families (NVIDIA) | GeForce families listed in NVIDIA's support information. |
-| Your GPU | A green indicator means the release lists all detected NVIDIA graphics cards. |
+| Your GPU | Whether the release lists all detected NVIDIA graphics cards, and whether this project has run it. A green row means both: NVIDIA documents your GPU in that driver's range **and** this project built and tested that exact version. A yellow row means only the first. |
 
 Versions with incompatible GPUs or unavailable support information are hidden.
 The hardware match does not guarantee compatibility with every kernel or display
 feature. GTX 10xx and older cards are not supported by this installer.
+
+Those are two different claims and the list keeps them apart. NVIDIA's support
+information says which GPUs a driver covers; it says nothing about whether that
+driver was ever booted with these tools. Only the version an image was built and
+accepted with carries the tested marker, and the text above the list names it. As
+newer drivers appear, the tested version eventually drops out of the ten newest
+package sets; when nothing offered has been tested here, the list says so instead
+of leaving you to work it out.
 
 The manager checks the ten newest complete package sets each time you open the
 version list. New drivers appear once their packages and GPU support information

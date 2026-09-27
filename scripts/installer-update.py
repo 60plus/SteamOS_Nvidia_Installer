@@ -22,6 +22,9 @@ VERSION_RE = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-
 MAX_BUNDLE = 32 * 1024 * 1024
 # Only project-owned files. Packages cannot replace arbitrary OS files or trust settings.
 OPTIONAL_FILES = {'mangoapp', 'mangoapp-build.json', 'MangoHud-LICENSE'}
+REQUIRED_FIELDS = {'format', 'version', 'steamos', 'bundle_sha256', 'files', 'notes'}
+NAME_RE = re.compile(r'[A-Za-z0-9._-]{1,64}')
+MAX_FILES = 64
 FILES = {
     'mangoapp': ('usr/lib/steamos-nvidia/mangoapp', 0o755),
     'mangoapp-build.json': ('usr/lib/steamos-nvidia/mangoapp-build.json', 0o644),
@@ -84,7 +87,20 @@ def verify_signature(manifest, signature, public_key, folder):
 
 
 def validate_manifest(value):
-    if set(value) != {'format', 'version', 'steamos', 'bundle_sha256', 'files', 'notes'} or value['format'] != 1:
+    """Judge a release by what this version understands, and ignore the rest.
+
+    A manifest naming one file this version does not know used to be refused whole,
+    which froze the set of files a release may carry. Every installed system
+    validates a new release against the list it was built with, and the update
+    window only ever offers the latest release, so publishing a release with one
+    added file would have stranded every older installation with no way forward.
+
+    Unknown names and unknown fields are therefore ignored, and what was skipped is
+    named. `format` stays strict, because that is the escape hatch for a change that
+    must not be ignored: an older tool refuses a newer format outright instead of
+    installing half of it.
+    """
+    if not isinstance(value, dict) or not REQUIRED_FIELDS <= set(value) or value['format'] != 1:
         raise ValueError('Unsupported release format')
     if not isinstance(value['version'], str) or not VERSION_RE.fullmatch(value['version']):
         raise ValueError('Invalid installer version')
@@ -93,16 +109,23 @@ def validate_manifest(value):
     if not isinstance(value['steamos'], list) or not value['steamos'] or not all(
             isinstance(v, str) and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', v) for v in value['steamos']):
         raise ValueError('Release must declare supported SteamOS versions')
-    if not isinstance(value['files'], dict):
+    if not isinstance(value['files'], dict) or not 0 < len(value['files']) <= MAX_FILES:
         raise ValueError('Release files must be an object')
     names = set(value['files'])
+    if not all(isinstance(name, str) and NAME_RE.fullmatch(name) for name in names):
+        raise ValueError('Invalid release file name')
     required = set(FILES) - OPTIONAL_FILES
     optional = names & OPTIONAL_FILES
-    if names - set(FILES) or required - names or optional not in (set(), OPTIONAL_FILES):
+    if required - names or optional not in (set(), OPTIONAL_FILES):
         raise ValueError('Release has missing or unexpected files')
     for sha in [value['bundle_sha256'], *value['files'].values()]:
         if not isinstance(sha, str) or not re.fullmatch('[0-9a-f]{64}', sha):
             raise ValueError('Invalid release checksum')
+    unknown = sorted(names - set(FILES))
+    if unknown:
+        print('Note: this release also carries ' + ', '.join(unknown) +
+              ', which this installer version does not install. A later release delivers them.',
+              file=sys.stderr)
     return value
 
 
@@ -206,7 +229,9 @@ def read_bundle(path, manifest):
             content[member.name] = data
     if set(content) != set(manifest['files']):
         raise ValueError('Incomplete release bundle')
-    return content
+    # Every signed member was read and checked above. Only the ones this version
+    # knows where to put are handed back to be written.
+    return {name: data for name, data in content.items() if name in FILES}
 
 
 def installed():

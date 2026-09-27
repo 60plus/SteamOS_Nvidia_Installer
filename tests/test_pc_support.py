@@ -242,6 +242,35 @@ class Support(unittest.TestCase):
         self.assertEqual(session.read_text(), original)
         self.assertFalse(old.exists())
 
+    def test_the_notification_workaround_reaches_both_steam_launchers(self):
+        """Game Mode alone was not enough, measured on 2026-09-26.
+
+        Steam runs as `steam-launcher.service` in Game Mode and as an instance of
+        `app-steam@.service` from the desktop, and the workaround has to be applied
+        again after every client verification in either one. This project's own
+        Troubleshooting page names desktop Big Picture as a reproduction path, so the
+        desktop launcher has to pull the worker in too. The instance name is chosen at
+        launch, so the relationship is declared by each launcher and the worker names
+        no launcher at all.
+        """
+        self.display_fixture()
+        (self.path / "usr/lib/steamos-nvidia/notification-renderer.py").write_text("# fixture")
+        result = self.run_helper('pc_install_display_policy "$root"')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        units = self.path / "usr/lib/systemd/user"
+        drops = [units / "steam-launcher.service.d/25-nvidia-notifications.conf",
+                 units / "app-steam@.service.d/25-nvidia-notifications.conf"]
+        self.assertEqual(drops[0].read_bytes(), drops[1].read_bytes(),
+                         "both launchers must pull the worker in the same way")
+        for directive in ('Wants=steamos-nvidia-notifications.service',
+                          'Before=steamos-nvidia-notifications.service',
+                          'PropagatesStopTo=steamos-nvidia-notifications.service'):
+            self.assertIn(directive, drops[0].read_text())
+        worker = (units / "steamos-nvidia-notifications.service").read_text()
+        self.assertNotIn("steam-launcher.service", worker,
+                         "the worker must name no launcher: the desktop instance has no fixed name")
+        self.assertIn("RemainAfterExit=yes", worker)
+
     def test_missing_hdr_initializer_rejects_installation(self):
         self.display_fixture()
         (self.path / "usr/lib/steamos-nvidia/hdr-defaults.py").unlink()
@@ -592,6 +621,31 @@ class AddonIntegrity(unittest.TestCase):
             link.symlink_to('../steamos-nvidia-bluetooth-resume.service')
             helper.unlink()
             self.assertNotEqual(shell('source lib/pc-support.sh; pc_check_addons "$1"', tmp).returncode, 0)
+
+    def test_both_notification_drop_ins_are_covered_by_the_addon_manifest(self):
+        """A drop-in the manifest does not list is a file nothing would miss."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dest = root / 'usr/lib/steamos-nvidia'
+            dest.mkdir(parents=True)
+            for name in ['hdr-defaults.py', 'safe-graphics.py', 'bluetooth-resume.py',
+                         'install-target.py', 'notification-renderer.py']:
+                shutil.copyfile(ROOT / 'scripts' / name, dest / name)
+            (root / 'usr/lib/steamos').mkdir()
+            (root / 'usr/lib/steamos/gamescope-session').write_text('# stock session\n')
+            (root / 'usr/bin').mkdir()
+            shutil.copyfile(ROOT / 'scripts/steamos-nvidia-diagnostics', root / 'usr/bin/steamos-nvidia-diagnostics')
+            code = ('source lib/pc-support.sh; chroot() { return 0; }; pc_install_display_policy "$1" && '
+                    'pc_install_bluetooth_resume "$1" && pc_write_addon_manifest "$1" && pc_check_addons "$1"')
+            result = shell(code, tmp)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = (dest / 'addons.sha256').read_text()
+            desktop = 'usr/lib/systemd/user/app-steam@.service.d/25-nvidia-notifications.conf'
+            self.assertIn('usr/lib/systemd/user/steam-launcher.service.d/25-nvidia-notifications.conf', manifest)
+            self.assertIn(desktop, manifest)
+            (root / desktop).unlink()
+            self.assertNotEqual(shell('source lib/pc-support.sh; pc_check_addons "$1"', tmp).returncode, 0,
+                                'removing a listed drop-in has to be noticed')
 
     def test_update_checks_addons_before_completion_marker(self):
         self.assertLess(REPATCH.index('pc_check_addons "$NEWROOT"'), REPATCH.rindex('pc_write_complete "$NEWROOT"'))
