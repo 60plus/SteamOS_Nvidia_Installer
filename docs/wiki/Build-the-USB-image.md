@@ -4,10 +4,11 @@
 
 ## Complete build
 
-This is the default build. Download and unpack Valve's current SteamOS recovery
-image and clone the full repository first; setup instructions follow below.
-Windows users can start with [Build on Windows](Build-on-Windows.md), and
-Bazzite users with [Build on Bazzite](Build-on-Bazzite.md).
+This is the default build. Download and unpack Valve's current SteamOS
+recovery image, then get the full repository: [Get the repository](#get-the-repository) below has the commands. Setup instructions follow
+after that. Windows users can start with [Build on
+Windows](Build-on-Windows.md), and Bazzite users with [Build on
+Bazzite](Build-on-Bazzite.md).
 
 The complete builder prepares the disposable SteamOS environment and builds all
 four artifacts automatically. Run it from the repository root on your Linux build
@@ -19,11 +20,12 @@ sudo bash tools/build-complete.sh /absolute/path/to/recovery.img
 
 Use the original recovery image Valve publishes, whichever release that currently
 is. You do not need to prepare a chroot or call each artifact builder yourself.
-The default includes MangoApp, the stable Gamescope correction, Remote Play
-receiver support, NVENC, built-in controller support and the GitHub updater
-configured with this project's public signing key. It selects the NVIDIA driver
-recorded in `config/build-baselines.json` and requests compute-library trimming.
-See the CUDA note below before using trimming in a custom streaming configuration.
+The default includes MangoApp, the corrected Gamescope build with both the
+capture color fix and the Game Mode menu fix, Remote Play receiver support,
+NVENC, built-in controller support and the GitHub updater configured with this
+project's public signing key. It selects the NVIDIA driver recorded in
+`config/build-baselines.json` and requests compute-library trimming. See the
+CUDA note below before using trimming in a custom streaming configuration.
 
 The builder prints the recovery release it found. Releases this project has
 validated are listed in `config/build-baselines.json`; anything else produces a
@@ -115,18 +117,18 @@ or every hardware configuration.
 
 ## Get the repository
 
-Use [release 0.1.7](https://github.com/60plus/steamos-nvidia-installer/releases/tag/v0.1.7). Download **Source code (zip)** or **Source code (tar.gz)** and extract the entire archive, or clone the release tag on Linux:
+Download and extract **Source code (zip)** or **Source code (tar.gz)** from
+[Releases](https://github.com/60plus/steamos-nvidia-installer/releases) and
+keep the whole archive, or clone the repository on Linux:
 
 ```bash
-git clone --branch v0.1.7 --depth 1 https://github.com/60plus/steamos-nvidia-installer.git
+git clone https://github.com/60plus/steamos-nvidia-installer.git
 cd steamos-nvidia-installer
 ```
 
-The complete one-command builder is included starting with 0.1.1. The source
-archives attached to 0.1.0 do not include it. The three `installer-*` assets are
-for Installer Update, not source archives or bootable images.
-
-Keep the full checkout. The main script needs the files in `lib` and `scripts`.
+Keep the full checkout. The main script needs the files in `lib` and
+`scripts`. The three `installer-*` assets on the Releases page are for
+Installer Update, not source archives and not bootable images.
 
 ## Download the recovery image
 
@@ -136,11 +138,13 @@ an image of an already installed system. Replace the example paths below with yo
 
 ## Base-only build (advanced)
 
-The basic command below builds NVIDIA support and the standard installer helpers.
-It does not compile or add the corrected overlay, Remote Play artifacts or desktop
-updater automatically. You can include these components; to build
-the complete configuration, build the artifacts described below and supply all
-relevant options together.
+The basic command below builds NVIDIA support and the standard installer helpers. It does not
+compile or add the corrected overlay, the corrected Gamescope, the Remote Play artifacts, the
+NVENC bridge or the desktop updater automatically. The corrected Gamescope is the part that
+repairs the corrupted Game Mode menus on NVIDIA, so an image built with the basic command alone
+does not carry that fix. That command also sets up no updater, so an installation made from such
+an image cannot be sent the fix later. You can include these components; to build the complete
+configuration, build the artifacts described below and supply all relevant options together.
 
 ```bash
 sudo ./steamos-nvidia-installer.sh /path/to/recovery.img
@@ -177,7 +181,7 @@ OptiX libraries; omit it if your applications need them.
 | `--driver SPEC` | Select a version prefix or an exact package version, or `latest` for the current Arch package. Default: the tested version in `config/build-baselines.json`. |
 | `--installer-update-source FILE` | Include the desktop updater with a maintainer-supplied source and public signing key. |
 | `--mangoapp-dir DIR` | Include the corrected performance overlay artifact. |
-| `--gamescope-dir DIR` | Include the stable Gamescope capture correction. |
+| `--gamescope-dir DIR` | Include the corrected Gamescope build: the capture color correction and the fix for corrupted Game Mode menus. Leaving it out leaves out both. |
 | `--remote-play-dir DIR` | Include the SDR receiver and decoder color correction. |
 | `--nvenc-dir DIR` | Include the 32-bit to 64-bit hardware-encoding bridge. |
 | `--workdir DIR` | Choose a reusable build cache. |
@@ -265,12 +269,31 @@ which can change after the image is built.
 Keep a working stable installer and use a separate test disk. Neither option
 enables main or establishes compatibility with every future experimental build.
 
-## Building the capture correction
+A Preview installation runs SteamOS's own Gamescope rather than this project's build. That is
+deliberate. The build is matched to one exact Gamescope package on the SteamOS 3.8 line, and it
+steps aside rather than put an older compositor on a newer system. Preview is the newer 3.9 line.
+The capture color correction is a backport of a change Valve's newer Gamescope already contains,
+so Remote Play colors from this machine are unaffected. What is not in Valve's build is this
+project's own fix for the corrupted Game Mode menus, so that fix is not active on Preview. Nothing
+on screen says so. The diagnostic report names the Gamescope selection, and on Preview it reads
+`stock`. Applying a project release on the 3.9 line has not been tested, and it would not change
+this selection.
 
-An image built with all components in the [build guide](Build-the-USB-image.md#complete-build) already includes the capture, receiver and NVENC
-artifacts described below. These sections explain how to reproduce that build.
-The options are optional for custom builders; users of that image do not
-need to build or enable the fixes themselves.
+## Building the corrected Gamescope
+
+An image built with all components in the [build guide](Build-the-USB-image.md#complete-build) already includes the
+Gamescope, receiver and NVENC artifacts described below. These sections explain how to reproduce
+that build. The options are optional for custom builders; users of that image do not need to build
+or enable the fixes themselves.
+
+The artifact carries two corrections. The first fixes the colors that a Remote
+Play host and a screenshot capture produce on an NVIDIA GPU. The second stops
+Gamescope handing a layer that needs alpha blending to a hardware plane on an
+NVIDIA display, which is what corrupted the Game Mode menus. The second
+correction switches itself on only for a display the kernel reports as
+`nvidia-drm`, and `GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=0` turns it off again if you
+need to compare.
+
 Use a disposable stable SteamOS build root with `/proc`, `/dev`, `/sys` and DNS
 available. The tool reinstalls build dependencies there because recovery images
 remove development headers while retaining their package database entries. Never use `/`
@@ -285,12 +308,16 @@ records provenance in `gamescope-build.json`. It does not install them into the
 running system. Keep the license files with the artifact. Compilation and pixel
 conversion checks do not replace a physical Remote Play and screenshot test.
 
-To include the artifact in an installer, add `--gamescope-dir /path/to/new-gamescope-output`
-to the normal image build command. The recovery desktop keeps its original
-Gamescope. The private capture build is activated once the installed system ships
-the Gamescope package the artifact was built from, on the SteamOS 3.8 line. An
-image may carry the artifact on any channel; the selection happens at install and
-repair time and returns to Valve's build whenever the package does not match.
+To include the artifact in an installer, add `--gamescope-dir /path/to/new-gamescope-output` to
+the normal image build command. The release packer accepts `--gamescope-dir` as well, so an
+integration update can deliver a new Gamescope build to a system that is already installed, with
+no new USB image. That reaches a system whose installed release is 0.1.9 or newer, because an
+update writes only the files the installed copy of the update tool already knows about, and
+Gamescope joined that list in 0.1.9. The recovery desktop keeps its original Gamescope. The
+corrected build is activated once the installed system ships the Gamescope package the artifact
+was built from, on the SteamOS 3.8 line. An image may carry the artifact on any channel; the
+selection happens at install and repair time and returns to Valve's build whenever the package
+does not match.
 
 ## Building Remote Play receiver support
 
@@ -304,10 +331,10 @@ sudo ./steamos-nvidia-installer.sh --remote-play-dir /path/to/remote-play-artifa
 
 The artifact includes source revision, patch hashes, binary hashes and the decoder
 license. It adds SDR receiving support without replacing files inside Steam's
-user installation. Combine it with `--gamescope-dir` to include the separate
-sending-side capture correction. Test both directions after installation and
-again after the first SteamOS update. The receiver policy uses SDR; HDR receiving
-is not provided by this configuration.
+user installation. Combine it with `--gamescope-dir` to include the corrected
+Gamescope build, which carries the sending-side capture correction. Test both
+directions after installation and again after the first SteamOS update. The
+receiver policy uses SDR; HDR receiving is not provided by this configuration.
 
 ## Building the NVENC encoding bridge
 

@@ -4,7 +4,20 @@
 
 Change one setting at a time and keep the original value. Capture a report before applying a workaround so the failure can be compared with the result.
 
-## Installer stops at the GPU check
+This page is grouped by the part of the system the problem is in.
+
+- [Installing and first boot](#installing-and-first-boot)
+- [Display and Game Mode](#display-and-game-mode)
+- [Sound](#sound)
+- [Controllers](#controllers)
+- [Sleep and wake](#sleep-and-wake)
+- [Remote Play and streaming](#remote-play-and-streaming)
+- [Performance overlay](#performance-overlay)
+- [Games, Steam and storage](#games-steam-and-storage)
+
+## Installing and first boot
+
+### Installer stops at the GPU check
 
 The installer checks the NVIDIA driver before offering a destination disk. All
 NVIDIA graphics cards must be detected by the driver included in the image, and
@@ -16,15 +29,121 @@ and check that the image uses a driver supporting your card. If the driver was
 changed during the live session, restart before trying again. A successful check
 confirms driver initialization on this PC, not every game or display feature.
 
-## Black screen
+### Package or signature failure
+
+Save the exact package name, URL and error. Check the build host's time, free space and server availability. A signature error is not the same as a missing package or a network timeout.
+
+Do not automatically add `--skip-sigcheck`. The repair path deliberately stops on signature failures. Fix the underlying trust or package availability problem before retrying.
+
+### Pinned package download fails
+
+Temporary network and server failures are retried a limited number of times.
+The report distinguishes an HTTP 404/410 from a transport or server failure.
+For the pinned NVIDIA packages and egl-wayland2, the downloader can try the
+same filename on the Arch archive or its package mirror. It never selects a
+different version to complete a repair. Older versions may exist only in the
+archive, so a mirror fallback is not guaranteed to succeed.
+
+Downloads are staged in a temporary file and only replace the destination after
+a successful, nonempty transfer. Package installation still applies the existing
+signature and dependency checks. An unavailable archive index is reported as
+unknown availability, not proof that a requested driver version does not exist.
+
+If both sources fail, retain the error and retry later. A failed update repair
+does not mark the target slot ready. Do not substitute another kernel's headers
+or disable signature checks to resolve a network failure.
+
+### Kernel module build failure
+
+Record the image checksum, target kernel and selected NVIDIA or xpadneo version. Save the compiler output, especially the first actual error. Matching headers and a driver compatible with that kernel are required.
+
+Do not copy a module from another kernel or manually create the completion marker.
+
+### Not enough space
+
+Check both the build workspace and the mounted image. During OS repair, also check `/home`. Having free space on the host does not mean the image's root partition has enough room.
+
+`--trim-cuda` can reduce the driver payload if CUDA, OpenCL and OptiX are not needed. The script does not enlarge partitions. The build checks actual free space after copying and flushing the compressed payload, with a 256 MiB reserve. A copy or space-check failure means the output image is incomplete and must not be used.
+
+If OS repair reaches its final space check, unused Btrfs metadata allocation can
+leave little room for files even on a large SSD. The repair helper can compact a
+limited number of metadata block groups in the inactive slot, then checks the
+same 256 MiB reserve again. It does not delete files, resize partitions or reduce
+metadata redundancy. If the reserve is still unavailable, the update stays blocked.
+Save the repair log rather than removing the space check or enabling the slot manually.
+
+### First setup reports an update download error near completion
+
+An error such as `Unable to download the required update (2)` can also mean that
+the final installation step failed after the OS was downloaded and written.
+Save the logs before reinstalling or retrying repeatedly:
+
+```bash
+sudo journalctl -b -u rauc -u atomupd --no-pager -n 120
+sudo tail -n 80 /var/log/steamos-nvidia-repatch.log
+```
+
+If the NVIDIA repair log does not exist, the failure may have happened before
+that step. Messages about a missing `/efi/SteamOS/partsets/self`, an empty booted
+slot or a missing other EFI device identify a boot-partition visibility problem.
+They do not indicate that another NVIDIA driver or a larger disk is needed.
+
+That cause was found and corrected. The update hook now runs in a mount namespace that keeps
+receiving the system's own automounts, so the EFI and ESP partitions stay visible to it, while the
+temporary mounts the hook makes stay out of the running system. This was proved on one PC: an RTX
+5060 machine installed from scratch and then updated from SteamOS 3.8.14 to 3.8.16, with the repair
+finishing and the root filesystem read-only afterwards.
+
+If your installation was made before the correction, the corrected hook arrives with this project's
+tools rather than with the SteamOS update. Open **SteamOS NVIDIA Installer Update**, install the
+current release, restart so the prepared slot is the one running, and only then start the SteamOS
+update. If the failure returns after that, report the exact repair log, the system journal and the
+installer version. The message on its own does not identify the cause.
+
+The same message has a second proved cause. If the repair log instead ends at the final free-space
+check, the inactive OS slot was below the 256 MiB it has to keep free. On the tested PC only 253 MiB
+were left, and the setup message said nothing about space. Read [Not enough space](#not-enough-space)
+for what the repair does in that case. A log that shows neither an EFI message nor a space message
+points at neither cause, so keep it and report it.
+
+Do not manually activate the failed slot; the repair and validation steps must finish first.
+
+
+If the repair log reports `gamescope/status.txt: FAILED` followed by
+`Addon validation failed`, a generated selection status was incorrectly included
+in the shipped-file checksum manifest. Downloading again cannot correct this.
+Use a corrected installer or have the integration helper and manifest repaired
+before retrying. The Gamescope binary must remain covered by checksum validation;
+do not disable addon checks or manually activate the failed slot.
+
+## Display and Game Mode
+
+### Black screen
 
 First distinguish a USB boot failure from an installed-system failure. Record whether the firmware logo appears, whether a text console works and which port connects the display.
+
+If the installer USB stops at a blinking cursor, with or without a few SteamOS boot messages first,
+check the image and the way it was written before you look at the graphics card. First make sure the
+image came from a build that finished: an image left behind by a build that stopped partway has been
+seen to reach a SteamOS boot registration message and then stop at a blinking cursor. While a build
+runs the file ends in `-nvidia-usbinstall.partial.img`, and it is renamed only when the build
+succeeds, so a file ending in `-nvidia-usbinstall.img` is a finished build. Check the time on the
+file as well: after a failed build, the file with the finished name next to your recovery image is
+the older image, not the one you have just tried to make.
+
+Then check that the image was written straight to the USB drive. One reported setup did not boot
+through Ventoy and booted after the image was written directly with Etcher, which is one setup and
+not a claim that Ventoy fails everywhere. See [Write the USB](Build-the-USB-image.md#write-the-usb).
+If the image is from a finished build, was written directly, and the USB still stops there, record
+the exact last lines on screen, the graphics card, the USB port used and how the monitor is
+connected, then report it. Boot registration, driver, storage and session start have not been shown
+to cause this.
 
 Try one display connected directly to the NVIDIA card. Remove adapters for the first comparison. Try `Ctrl+Alt+F4` to reach a text console and log in as `deck`. If a console is available, check `nvidia-smi`, `uname -r` and the boot errors. A successful driver query does not rule out a session or display problem.
 
 The repository describes `steamos-session-select plasma` as a way to switch to Desktop Mode from a usable console. It changes the selected session, so record that change. New builds include an optional [Safe Graphics](Safe-Graphics.md) session.
 
-## HDR and HDMI
+### HDR and HDMI
 
 **Try DisplayPort if HDMI gives you display problems.** Connect the monitor
 directly to the NVIDIA card, without an adapter. This is a useful first check for
@@ -52,48 +171,100 @@ Restart Steam after connecting a new monitor if its default has not been applied
 The setting does not force a resolution, refresh rate or scaling value.
 
 If Steam's Native label shows 1080p on a 1440p screen, turn **Automatically Set
-Resolution** off and select the correct mode. Check the monitor's own information
+Resolution** off and select the correct mode. If the picture is corrupted as soon as the
+new mode takes effect, see [the entry on raising the resolution in Game Mode](#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode):
+only restarting the session clears it. Check the monitor's own information
 screen to distinguish the physical output from Steam's maximum game resolution.
 
-## Flicker, missing refresh rate or TV problems
+### Flicker, missing refresh rate or TV problems
 
 Start with a standard refresh rate and temporarily disable VRR and HDR through the available display settings. Record whether the problem affects Desktop Mode, Game Mode or both.
 
 Test another cable and port separately. Record HDMI versus DisplayPort, monitor or TV model, resolution, refresh rate and scaling. Do not apply several compositor environment variables at once.
 
-## Game Mode menu corruption with particular display settings
+If changing the resolution from inside Game Mode leaves the picture corrupted, see [the entry on raising the resolution in Game Mode](#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode).
 
-On one tested PC, with a game running and the performance overlay off, opening the Quick Access
-menu or the menu behind the Steam button leaves large parts of the screen corrupted. The upper
-part of the menu stays readable while much of the area around it does not: displaced and repeated
-fragments of the interface, black rectangles, coloured bands and speckle. In one case much of the
-game behind it remained legible, in another almost none of it did.
+If the picture only breaks up when you open the Quick Access menu or the menu behind the Steam
+button while a game is running, that was a separate NVIDIA fault and release 0.2.0 fixes it. See
+[Corrupted Game Mode menus on NVIDIA](#corrupted-game-mode-menus-on-nvidia).
+On the tested PC it appeared over DisplayPort and over HDMI alike, so a different cable is not the
+first thing to try for that one.
 
-**Three settings each avoided it on that machine, any one of them on its own.** Two of them work
-with the performance overlay switched off, so none of the three is the defining one:
+### Selecting a 4096x2160 mode does nothing
 
-- Turn the **performance overlay on**, at any level.
-- In Display settings, turn **Automatically Scale Image** off and move the slider that appears one
-  step below its maximum. Leave `Automatically Scale User Interface` alone. The cost is a few
-  pixels of black border around the image.
-- Turn **HDR on**. Observed on the tested DisplayPort connection. This is not a general
-  recommendation: this project records separate HDMI HDR problems, and new display profiles
-  deliberately start with HDR off.
+**Choose 3840x2160 instead.** It works immediately. On the television tested here that is the
+panel's own resolution, while 4096x2160 is the cinema format and is wider than the panel.
+
+On a display that offers 4096x2160, choosing it in Steam's display settings does not give you that
+mode. The output goes to whatever mode the display declares as its preferred one, which on the set
+tested here was the mode already in use. Steam records the choice, so the setting looks as though it
+took effect, and nothing on screen says otherwise. Gamescope advertises those modes to Steam and
+then refuses to set them: its own list of modes to ignore rejects every 4096x2160 mode whatever the
+refresh rate, and with no match it falls back to the display's preferred mode without reporting
+anything. This is upstream Gamescope behaviour and is not caused by anything this project installs.
+
+Seen on an LG television over HDMI with the Gamescope build carried by release 0.2.0, version
+3.16.23.6, on SteamOS 3.8.28. The list of modes to ignore is part of the Gamescope source itself,
+the same in this project's build and in the build SteamOS ships, and it does not depend on your
+graphics card or driver. A later Gamescope may treat these modes differently. Nothing this project
+installs changes that list.
+
+### Corrupted Game Mode menus on NVIDIA
+
+**This was a real fault and release 0.2.0 fixes it.** With a game running and the performance
+overlay off, opening the Quick Access menu or the menu behind the Steam button used to leave large
+parts of the screen corrupted. The upper part of the menu stayed readable while much of the area
+around it did not: displaced and repeated fragments of the interface, black rectangles, colored
+bands and speckle. In one case much of the game behind it remained legible, in another almost none
+of it did.
+
+**The cause is not in this project.** Gamescope can hand the game and Steam's interface straight to
+two hardware display planes and let the graphics card blend them, instead of composing the frame
+itself, and on an NVIDIA display output that blend is drawn wrongly. The Gamescope build carried by
+0.2.0 refuses that route whenever a layer above the base layer needs alpha blending. The decision is
+made from the display output the system actually opened, not from the card that renders, so a screen
+on an AMD or Intel output behaves exactly as before. It is on by default and there is nothing to
+set. `GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=0` turns it off, which is only useful for a comparison.
+
+**If your installation is 0.1.8 or older, take one step at a time.** An update writes only the
+files the installed copy of the update tool already knows about, and Gamescope joined that list in
+0.1.9. A system on 0.1.8 that jumps straight to a later release installs the tools, skips the
+Gamescope binary without stopping, and then reports itself up to date without the fix. Tools older
+than 0.1.8 are stricter and refuse such a release outright, so they have to reach 0.1.8 before
+that. [Updating from an older installer](Installer-Updates.md#updating-from-an-older-installer) gives the exact
+sequence. On 0.1.9 or newer, or on a system installed from a 0.1.9 image or newer, install the
+current release and restart.
+
+The corrected Gamescope is only selected when the installed SteamOS carries exactly the Gamescope
+package the artifact was built against. If SteamOS moves to a newer Gamescope, the system returns to
+the distribution's own build. That is deliberate: an older patched compositor is never forced over a
+newer one from Valve. The symptom can come back until a new artifact exists, and a diagnostic report
+names which one is in use.
+
+**The old workarounds are no longer needed.** Before 0.2.0, three display settings each avoided the
+fault on their own, because each of them forced the frame to be composed: turning the performance
+overlay on at any level, turning **HDR on**, and turning **Automatically Scale Image** off with the
+slider that appears one step below its maximum. Release 0.2.0 composes the frame for you, so set all
+three the way you prefer, and none of them is worth keeping for this reason. If a diagnostic report
+ever shows the distribution's own Gamescope in use and the corruption returns with it, those three
+settings still avoid it. Turning HDR on was never a general recommendation in any case: this
+project records separate HDMI HDR problems, and new display profiles deliberately start with
+HDR off.
 
 Other things that were tried, with what they actually showed:
 
-- **Moving the mouse** clears it while the pointer keeps moving, and it returns once the pointer
-  hides. That makes it a quick way to recognise this fault rather than a fix, and it is not a
-  unique fingerprint.
+- **Moving the mouse** cleared it while the pointer kept moving, and it returned once the pointer
+  hid. That is still worth knowing, because it tells this fault apart from a corrupted picture that
+  nothing on screen clears.
 - Turning **GPU accelerated rendering in web views** off removed the corruption on the tested
   machine and made the menus very slow. That setting changes several parts of rendering at once,
-  so the result is a comparison rather than a diagnosis, and it is not a setting to keep.
-- A **lower output resolution is not a workaround, and on the tested machine it turned out worse.**
-  At 1080p60 the corruption also appeared in the main Steam interface with no game running at all,
-  which never happened at 2560x1440. An earlier version of this page reported a lower resolution as
-  clean, on a short look that did not include the menus. The likely reason is that the smaller the
-  output, the more of the interface is exactly output sized, and output sized layers are the ones
-  that qualify for a hardware plane.
+  so the result is a comparison rather than a diagnosis, and it was never a setting to keep.
+- A **lower output resolution was never a workaround, and on the tested machine it turned out
+  worse.** At 1080p60 the corruption also appeared in the main Steam interface with no game running
+  at all, which never happened at 2560x1440. The likely reason is that the smaller the output, the
+  more of the interface is exactly output sized, and output sized layers are the ones that qualify
+  for a hardware plane. That is the model the fix is built on, rather than something measured
+  inside the driver.
 
 **What did not help, and what that does and does not prove.** Each of these was tried on its own
 with the machine rebooted so every component started normally, and the corruption was unchanged:
@@ -104,11 +275,18 @@ ones. It does not follow that reinstalling or changing drivers can never help an
 particular substitutions on one machine, and reports elsewhere describe older drivers behaving
 better.
 
-**The failing component is not known.** The machine was read while one of those menus was
-corrupted and again while the same menu was on screen and correct: the display mode, the
-framebuffer identifier, its dimensions and its format were the same in both, and no relevant
-errors appeared in the logs examined. That comparison does not look at the pixels, the source
-surface, synchronisation or buffer lifetime, so it narrows where to look rather than settling it.
+**How it was narrowed.** The machine was read while one of those menus was corrupted and again
+while the same menu was on screen and correct. The display mode, the plane's dimensions and its
+format were the same in both, only the framebuffer identifier changed, which is what frames
+flipping normally looks like, and no relevant errors appeared in the logs
+examined. That comparison does not look at the pixels, the source surface,
+synchronisation or buffer lifetime, so it narrowed where to look rather than settling
+it. What settled it was a Gamescope built with extra tracing: in the state that
+corrupts, the game and Steam's interface are on two hardware planes and nothing is
+composed, while in every state that was clean the plane assignment failed or was never
+attempted and the frame was composed. What is still not
+identified is the defect inside the NVIDIA driver that makes that route fail, and whether other
+reports of corrupted menus share this cause.
 
 Two further observations from the same machine, scoped to it. At 2560x1440 the corruption behaved
 the same at 60 Hz as at 165 Hz, which says that reducing the rate between those two modes did not
@@ -120,11 +298,76 @@ An upstream report describes the same kind of corruption with unmodified Gamesco
 [gamescope#1964](https://github.com/ValveSoftware/gamescope/issues/1964), including that it is
 clean while the cursor is active and that older drivers behaved better.
 
-If you see this, report the display, the connection, the resolution and refresh rate, whether HDR
-is on, the two scaling settings, **which of the workarounds above you tried and what each one
-did**, your driver and Gamescope versions, and a log with the time you reproduced it.
+**What this was proved on.** One PC: an RTX 5060 with NVIDIA driver 615.71.09 on SteamOS 3.8.28,
+and one monitor, over both DisplayPort and HDMI, at 2560x1440 at 60, 120, 144 and 165 Hz and at
+1920x1080 at 60 and 120 Hz, with HDR and the performance overlay each tried off and on, and VRR off
+and on where the display offered it. The corruption was reproduced on purpose on both connections
+before the change and did not come back on either afterwards, so the clean result is the change and
+not a machine that stopped failing. That is one
+graphics card and one screen. The change is written to the way the frame is presented rather than to
+a card model, so it takes effect on any display output the kernel reports as an NVIDIA one, but no
+other card has been tested here. A result from a different NVIDIA card is welcome either way: see
+[Diagnostics](Diagnostics-and-test-results.md).
 
-## Black border around Game Mode notifications
+**If you still see this on 0.2.0 or newer**, first confirm which Gamescope your system is running.
+Take a diagnostic report and find the section named `Experimental Gamescope selection`. A line
+beginning `capture-backport` means this project's build is in use. A line beginning `stock` means
+the distribution's own build is in use, so the fix is not present, and that happens when SteamOS
+carries a Gamescope package the artifact was not built against rather than because an update went
+wrong. The Game Mode session records the decision once at startup, in the journal of
+`gamescope-session.service` in your own user session:
+
+```bash
+journalctl --user -b -u gamescope-session.service --no-pager | grep -i "composition policy"
+```
+
+The line to look for reads `NVIDIA alpha layer composition policy: enabled by default for
+nvidia-drm`. If no such line is there at all, you are on an older Gamescope and the update order
+above is the thing to check. If it says the policy is not applicable to another driver, or if a
+warning says the driver of the display device could not be identified, the corrected Gamescope is
+running but your screen is not on the NVIDIA kernel driver, so this fix does not apply to it. If it
+says the policy is disabled by `GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=0`, that variable has been set
+somewhere and should be removed. If the policy is enabled and the menus are still
+wrong, report the display, the connection, the resolution and refresh rate, whether HDR is on, the
+two scaling settings, your driver and Gamescope versions, and a log with the time you reproduced it.
+
+If moving the mouse does not clear it and only a session restart does, this is a different fault:
+see [the entry below on raising the resolution in Game Mode](#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode).
+
+### The picture is corrupted after raising the resolution in Game Mode
+
+Raising the output resolution above 1920x1080 while Game Mode is already running can corrupt the
+whole screen: the picture drawn correctly and then repeated lower down at an offset, tiles that keep their
+shape while filled with dense static, bands of noise. Nothing on screen clears it, so at that point
+the machine usually cannot be operated by hand.
+
+**Only restarting the Game Mode session clears it.** If you can reach the PC from another computer
+on your network, restarting the session from there is enough. Otherwise restart the machine with its
+power button. The resolution you chose is kept, and a session that starts in it is correct from the
+first frame, so the cost is the one corrupted session between choosing the mode and restarting.
+
+What does and does not trigger it: starting a session at 3840x2160 is clean, lowering the resolution
+while the session runs is clean, and raising it from 1280x720 to 1920x1080 is clean. The change that
+corrupted the picture was 1920x1080 up to 3840x2160, and having been at a higher resolution earlier
+in the same session does not protect you.
+
+That is what was measured, on one machine: an RTX 5060 with NVIDIA driver 615.71.09, SteamOS 3.8.28
+build 20260922.1, the Gamescope build carried by 0.2.0, and a 4K LG television over HDMI. One upward
+change was corrupt and one was clean, so on another display, another connection or another pair of
+modes, treat a change made while the session is running as untested rather than as known safe.
+
+It is not the release 0.2.0 menu fix: it happens with that fix switched off as well. The image
+Gamescope composes is correct and the display settings committed for it are correct, so what goes
+wrong is the reading out of a finished image, not anything this project changes about the picture.
+Whether the fault belongs to Gamescope or to the NVIDIA driver below it has not been settled here.
+Changing the cable will not help: a failing cable gives sparkle and dropouts, while here the
+structure of the picture survives intact and is simply read wrongly.
+
+Do not confuse it with the corrupted menus above. That one was cleared by moving the mouse and by a
+few display settings, and 0.2.0 removes it outright. This one is cleared by nothing except
+restarting the session.
+
+### Black border around Game Mode notifications
 
 Steam notifications can have an opaque black background in Game Mode and in
 Big Picture launched from Desktop Mode. Notifications in the regular desktop
@@ -141,15 +384,34 @@ Restart, fresh installation with its first update, and the Beta to Preview to
 Stable sequence passed with the supported client builds.
 
 On an existing installation, use **SteamOS NVIDIA Installer Update** to install
-0.1.2, then restart. Inspect its state without sudo:
+the current release, then restart. Inspect its state without sudo:
 
 ```bash
 python3 /usr/lib/steamos-nvidia/notification-renderer.py status
 ```
 
-An unsupported result means the Steam client asset differs from the verified
-version. The helper leaves it unchanged. After a client update the border may
-return. Do not manually replace code in an unknown client version.
+The command prints one line:
+
+- `embedded renderer active on disk`: the workaround is applied.
+- `original renderer on disk`: your Steam client is one of the reviewed versions, but the
+  workaround is not applied at this moment. It is applied a little after Steam's own browser
+  starts, so start Steam, give it a minute and check again, or use the `enable` command below.
+- `legacy size-changing patch on disk`: an older form of the workaround is still on disk. The
+  installed helper replaces it the next time Steam starts.
+- a line beginning `unsupported`: your Steam client asset is not one this project has reviewed,
+  so the helper left it alone on purpose.
+
+A second line reading `Automatic application disabled by user` appears if you ran `disable`
+earlier.
+
+An unsupported result means the Steam client asset differs from the reviewed versions, which are
+named in [How it works](How-it-works.md#embedded-steam-notifications).
+The helper leaves it unchanged. A Steam client update can put you in this state and bring the black
+border back. Nothing on your system switches the workaround back on at that point: the new client
+asset has to be reviewed and carried by a later release. Do not manually replace code in an unknown
+client version. Report the Steam client build number you are on, and whether you use the stable or
+the beta client, following [Diagnostics](Diagnostics-and-test-results.md).
+If you see any other line, report it with the same details.
 
 To disable the workaround and restore the verified original, run the following
 and restart Steam after closing your game:
@@ -162,120 +424,34 @@ Use `enable` instead of `disable` to apply it again. See
 [How it works](How-it-works.md#embedded-steam-notifications) for the checks and
 startup limitations. Safe Graphics has not removed this symptom.
 
-## Red and blue are swapped in Remote Play or screenshots
+### KDE reports that gamescope crashed when you leave Game Mode
 
-Compare the local game image with the receiving device or saved image. If the
-local image is correct but red and blue are swapped in the capture, record the
-Gamescope and NVIDIA driver versions, the capture method, and the screenshot
-format. Use a scene containing distinct red, green and blue areas.
+Harmless, and not caused by this project. Leaving Game Mode for the desktop ends
+the Gamescope session, and on the way out Gamescope destroys its Vulkan device
+from a static destructor after the Vulkan library has already been unloaded, so it
+calls into memory that is no longer mapped. The session was ending anyway and
+nothing is lost, but systemd writes a core file each time and KDE may offer to
+report it.
 
-An image built with all components in the [build guide](Build-the-USB-image.md#complete-build) includes both Remote Play color corrections. There is
-nothing extra to enable: Gamescope corrects capture when SteamOS sends video,
-and the private NVIDIA decoder corrects colors when SteamOS receives video.
-Both directions have passed hardware tests. This does not establish correct
-colors for every screenshot format; report screenshot failures separately.
+Confirmed on 2026-09-26 against Valve's own `gamescope 3.16.23.6-1` with this
+project's artifact switched off for one session, which crashed the same way, so it
+is not the capture correction. It is reported upstream as
+[ValveSoftware/gamescope#1526](https://github.com/ValveSoftware/gamescope/issues/1526),
+open since September 2024, where the first report carries the same backtrace with
+line numbers and names the global Vulkan device that is destroyed too late. The backtrace ends in `exit`, with
+`CVulkanDevice::~CVulkanDevice` and `CVulkanCmdBuffer::~CVulkanCmdBuffer` above it.
+Old core files can be removed with `sudo journalctl --vacuum-time=1d` or by
+deleting them from `/var/lib/systemd/coredump`.
 
-When building an image yourself, include the artifacts with `--gamescope-dir`
-and `--remote-play-dir`. These are build options, not switches that users of the
-resulting image need to set. The SteamOS update repair hook preserves the included
-artifacts. Installer Update does not add their binaries to older installations
-that lack them. See [How it works](How-it-works.md#capture-color-correction).
-A green HDMI display or a frozen session is a different symptom.
+## Sound
 
-## No HDMI or DisplayPort audio
+### No HDMI or DisplayPort audio
 
 Check the selected output and mute state in the desktop audio settings. Run `wpctl status` as the desktop user and record whether the display audio device appears. Test before and after sleep and after reconnecting the cable.
 
 A display working does not prove its audio output is selected.
 
-## Controller pairs but input fails
-
-Start with the built-in SteamOS driver. Check buttons, Share and rumble in Steam and in a game before adding another driver. If you explicitly included xpadneo, check
-`modinfo hid_xpadneo`. Record the Bluetooth adapter and compare with USB.
-
-Record the controller model and firmware. If firmware is old, check for an update through Xbox Accessories on Windows, then pair again. Old firmware is one possible cause, not a diagnosis based on pairing alone.
-
-The xpadneo build includes the original wrapper's global Bluetooth profile:
-ControllerMode=dual, JustWorksRepairing=confirm, LE intervals 7/9 with latency 0,
-UserspaceHID=true, ClassicBondedOnly=false and LEAutoSecurity=false.
-Existing files are backed up as /etc/bluetooth/main.conf.before-xpadneo and
-/etc/bluetooth/input.conf.before-xpadneo before modification. Review these
-alongside the current files when comparing Bluetooth behavior. Update repairs
-apply the same profile in the new slot. A --no-xpadneo build leaves Bluetooth
-configuration alone.
-
-## Package or signature failure
-
-Save the exact package name, URL and error. Check the build host's time, free space and server availability. A signature error is not the same as a missing package or a network timeout.
-
-Do not automatically add `--skip-sigcheck`. The repair path deliberately stops on signature failures. Fix the underlying trust or package availability problem before retrying.
-
-## Pinned package download fails
-
-Temporary network and server failures are retried a limited number of times.
-The report distinguishes an HTTP 404/410 from a transport or server failure.
-For the pinned NVIDIA packages and egl-wayland2, the downloader can try the
-same filename on the Arch archive or its package mirror. It never selects a
-different version to complete a repair. Older versions may exist only in the
-archive, so a mirror fallback is not guaranteed to succeed.
-
-Downloads are staged in a temporary file and only replace the destination after
-a successful, nonempty transfer. Package installation still applies the existing
-signature and dependency checks. An unavailable archive index is reported as
-unknown availability, not proof that a requested driver version does not exist.
-
-If both sources fail, retain the error and retry later. A failed update repair
-does not mark the target slot ready. Do not substitute another kernel's headers
-or disable signature checks to resolve a network failure.
-
-## Kernel module build failure
-
-Record the image checksum, target kernel and selected NVIDIA or xpadneo version. Save the compiler output, especially the first actual error. Matching headers and a driver compatible with that kernel are required.
-
-Do not copy a module from another kernel or manually create the completion marker.
-
-## Not enough space
-
-Check both the build workspace and the mounted image. During OS repair, also check `/home`. Having free space on the host does not mean the image's root partition has enough room.
-
-`--trim-cuda` can reduce the driver payload if CUDA, OpenCL and OptiX are not needed. The script does not enlarge partitions. The build checks actual free space after copying and flushing the compressed payload, with a 256 MiB reserve. A copy or space-check failure means the output image is incomplete and must not be used.
-
-If OS repair reaches its final space check, unused Btrfs metadata allocation can
-leave little room for files even on a large SSD. The repair helper can compact a
-limited number of metadata block groups in the inactive slot, then checks the
-same 256 MiB reserve again. It does not delete files, resize partitions or reduce
-metadata redundancy. If the reserve is still unavailable, the update stays blocked.
-Save the repair log rather than removing the space check or enabling the slot manually.
-
-## Steam login or library disappears
-
-Record whether this happened after a reboot, OS update or USB reinstallation. Check that the intended disk booted. Preserve logs before reinstalling.
-
-Use an image built from the current script if an older installer repeatedly clears Steam data. Updating the installer cannot recover already deleted files. Restore those from a backup.
-
-## A game fails but the desktop works
-
-Test a second game and record the Proton version. Compare a 64-bit game with one using a 32-bit component. If available, `vulkaninfo --summary` provides another graphics check; it is not included in the diagnostic script and may not be installed.
-
-Temporarily test without overlays and record whether MangoHud changes the result.
-
-## Sleep or wake fails
-
-Save a report before sleep and another after wake if the machine remains usable. Record whether the failure concerns video, audio, network or controller reconnect. Note whether the NVIDIA power services are enabled; that alone does not prove suspend support.
-
-If a hard restart was necessary, previous-boot logs may help where persistent journaling is available. Sleep behavior depends on the hardware and driver.
-
-## USB keyboard or controller cannot wake the PC
-
-Check the motherboard's BIOS/UEFI settings before changing Linux configuration. USB wake may be disabled even when sleep and the case power button work normally.
-
-On MSI boards, look under **Settings > Advanced > Wake Up Event Setup > Resume By USB Device** and set it to **Enabled**. Menu names vary by board and firmware. See [MSI's USB power and wake guide](https://us.msi.com/support/technical_details/MB_BIOS_Sleep_Hibernate).
-
-Save the setting, boot SteamOS, suspend and test a wired USB keyboard first. Test pressing a button on an already connected controller separately from connecting a USB device during sleep. These actions may have different hardware support.
-
-Bluetooth controller wake is a separate check. Working USB keyboard wake does not establish Bluetooth wake support; the adapter, controller and their wake settings also matter. The headphone reconnect helper runs after resume and does not wake the PC.
-
-## Bluetooth headphones stay disconnected after wake
+### Bluetooth headphones stay disconnected after wake
 
 The installer includes an audio reconnect helper. It remembers paired, trusted
 Bluetooth headphones or speakers connected just before sleep. After wake it waits
@@ -304,68 +480,68 @@ systemctl --user unmask steamos-nvidia-bluetooth-resume.service
 systemctl --user start steamos-nvidia-bluetooth-resume.service
 ```
 
-## GPU readings are zero in the performance overlay
+## Controllers
 
-The GPU load percentage can work while temperature, clock speed, power and VRAM
-remain at zero. Some MangoApp versions keep the sensor selection from startup
-when you change the overlay detail level. This does not by itself indicate a
-faulty driver. Compare the readings with `nvidia-smi`.
+### Controller pairs but input fails
 
-An image built with all components in the [build guide](Build-the-USB-image.md#complete-build) includes the corrected MangoApp. Custom builds include
-it with `--mangoapp-dir`. It refreshes the NVIDIA sensor selection
-continuously. Voltage and junction temperature are hidden for NVIDIA because
-this backend does not provide those readings. Ordinary GPU temperature remains
-available. Levels 3 and 4 show each detected model above its GPU or CPU readings.
-The GPU capacity is rounded to whole GB for a compact product label; live VRAM
-usage is shown separately. Other unsupported sensors, such as CPU power or RAM temperature, may
-still be unavailable on a particular computer.
+Start with the built-in SteamOS driver. Check buttons, Share and rumble in Steam and in a game before adding another driver. If you explicitly included xpadneo, check
+`modinfo hid_xpadneo`. Record the Bluetooth adapter and compare with USB.
 
-On a build without the correction, select the detailed overlay first, then run
-this command from a terminal in your own user session:
+Record the controller model and firmware. If firmware is old, check for an update through Xbox Accessories on Windows, then pair again. Old firmware is one possible cause, not a diagnosis based on pairing alone.
 
-```bash
-systemctl --user restart gamescope-mangoapp.service
-```
+The xpadneo build includes the original wrapper's global Bluetooth profile:
+ControllerMode=dual, JustWorksRepairing=confirm, LE intervals 7/9 with latency 0,
+UserspaceHID=true, ClassicBondedOnly=false and LEAutoSecurity=false.
+Existing files are backed up as /etc/bluetooth/main.conf.before-xpadneo and
+/etc/bluetooth/input.conf.before-xpadneo before modification. Review these
+alongside the current files when comparing Bluetooth behavior. Update repairs
+apply the same profile in the new slot. A --no-xpadneo build leaves Bluetooth
+configuration alone.
 
-This restarts only the performance overlay. Changing its detail level can trigger
-the problem again on an uncorrected build. To check which executable is running:
+## Sleep and wake
 
-```bash
-systemctl --user show gamescope-mangoapp.service -p ExecStart
-```
+### Sleep or wake fails
 
-The corrected build uses `/usr/lib/steamos-nvidia/mangoapp`. The original
-`/usr/bin/mangoapp` remains installed. Report the executable path, SteamOS and
-NVIDIA versions when submitting an overlay issue.
+Save a report before sleep and another after wake if the machine remains usable. Record whether the failure concerns video, audio, network or controller reconnect. Note whether the NVIDIA power services are enabled; that alone does not prove suspend support.
 
-## First setup reports an update download error near completion
+If a hard restart was necessary, previous-boot logs may help where persistent journaling is available. Sleep behavior depends on the hardware and driver.
 
-An error such as `Unable to download the required update (2)` can also mean that
-the final installation step failed after the OS was downloaded and written.
-Save the logs before reinstalling or retrying repeatedly:
+### USB keyboard or controller cannot wake the PC
 
-```bash
-sudo journalctl -b -u rauc -u atomupd --no-pager -n 120
-sudo tail -n 80 /var/log/steamos-nvidia-repatch.log
-```
+Check the motherboard's BIOS/UEFI settings before changing Linux configuration. USB wake may be disabled even when sleep and the case power button work normally.
 
-If the NVIDIA repair log does not exist, the failure may have happened before
-that step. Messages about a missing `/efi/SteamOS/partsets/self`, an empty booted
-slot or a missing other EFI device identify a boot-partition visibility problem.
-They do not indicate that another NVIDIA driver or a larger disk is needed.
-Report the exact log and installer version. Do not manually activate the failed
-slot; the repair and validation steps must finish first.
+On MSI boards, look under **Settings > Advanced > Wake Up Event Setup > Resume By USB Device** and set it to **Enabled**. Menu names vary by board and firmware. See [MSI's USB power and wake guide](https://us.msi.com/support/technical_details/MB_BIOS_Sleep_Hibernate).
 
+Save the setting, boot SteamOS, suspend and test a wired USB keyboard first. Test pressing a button on an already connected controller separately from connecting a USB device during sleep. These actions may have different hardware support.
 
-If the repair log reports `gamescope/status.txt: FAILED` followed by
-`Addon validation failed`, a generated selection status was incorrectly included
-in the shipped-file checksum manifest. Downloading again cannot correct this.
-Use a corrected installer or have the integration helper and manifest repaired
-before retrying. The Gamescope binary must remain covered by checksum validation;
-do not disable addon checks or manually activate the failed slot.
+Bluetooth controller wake is a separate check. Working USB keyboard wake does not establish Bluetooth wake support; the adapter, controller and their wake settings also matter. The headphone reconnect helper runs after resume and does not wake the PC.
 
+## Remote Play and streaming
 
-## Remote Play client codec setting
+### Red and blue are swapped in Remote Play or screenshots
+
+Compare the local game image with the receiving device or saved image. If the
+local image is correct but red and blue are swapped in the capture, record the
+Gamescope and NVIDIA driver versions, the capture method, and the screenshot
+format. Use a scene containing distinct red, green and blue areas.
+
+An image built with all components in the [build guide](Build-the-USB-image.md#complete-build) includes both Remote Play color corrections. There is
+nothing extra to enable: Gamescope corrects capture when SteamOS sends video,
+and the private NVIDIA decoder corrects colors when SteamOS receives video.
+Both directions have passed hardware tests. This does not establish correct
+colors for every screenshot format; report screenshot failures separately.
+
+When building an image yourself, include the artifacts with `--gamescope-dir`
+and `--remote-play-dir`. These are build options, not switches that users of the
+resulting image need to set. The SteamOS update repair hook preserves the included
+artifacts. Since 0.1.9 the updater knows how to place a Gamescope build, and release 0.2.0 is the one that carries the corrected build, so Installer Update can deliver the Gamescope binary to an
+installed system, which is how the corrected menus reach a machine without
+building a new image. It still does not add the Remote Play receiver binaries to
+a system that lacks them, because those files are not in the list a release may
+carry. See [How it works](How-it-works.md#capture-color-correction).
+A green HDMI display or a frozen session is a different symptom.
+
+### Remote Play client codec setting
 
 On the receiving device, open Steam's **Settings > Remote Play > Advanced Client
 Options**, enable **HEVC Video**, then disconnect and reconnect the stream. For
@@ -377,7 +553,7 @@ by the installer. The result does not establish that HEVC is required for every
 client or that H.264 cannot work. If HEVC does not resolve the problem, collect
 the streaming logs and follow the display and encoder checks below.
 
-## Remote Play connects but shows black video
+### Remote Play connects but shows black video
 
 Check the host's `~/.local/share/Steam/logs/streaming_log.txt` and Game Mode
 journal. Record the capture method and encoder. A working local game does not
@@ -390,7 +566,7 @@ hardware testing with these fixes. If black video returns, collect the logs abov
 library loading and initialization before adding packages. Steam can fall back
 to software encoding while a separate capture problem still produces black video.
 
-## Streamed colors are wrong but the receiver menu is correct
+### Streamed colors are wrong but the receiver menu is correct
 
 Include the direction of the stream in your report. When another PC sends video
 to SteamOS, correct local menu colors with incorrect video colors can indicate a
@@ -404,7 +580,7 @@ decoder correction for the NV12 chroma descriptor. For custom builds, include it
 with `--remote-play-dir`; Installer Update does not add it to older systems.
 Do not change monitor color calibration to compensate.
 
-## Remote Play uses x264 instead of NVENC on RTX 50
+### Remote Play uses x264 instead of NVENC on RTX 50
 
 Check whether the host log already says `hardware_enabled=true`. If it then reports
 `NVENC - No CUDA support`, turning hardware encoding on again will not resolve the
@@ -460,7 +636,7 @@ systemctl --user start steamos-nvidia-nvenc.service
 The runtime mask disappears at reboot. These commands apply to the integrated
 service, not to earlier manual experiments. The receiver decoder is separate.
 
-## The screen stays black after leaving a streamed game
+### The screen stays black after leaving a streamed game
 
 This is a receiver defect that was measured and fixed on 2026-09-26. On an image
 built before that fix, leaving a game that was being streamed to this machine can
@@ -484,10 +660,10 @@ kill -9 "$(ps -eo pid,comm | awk '$2=="streaming_clien"{print $1; exit}')"
 
 SIGTERM does not work, because the thread that would handle it is the one that is
 stuck. An image built with all components in the [build guide](Build-the-USB-image.md#complete-build) contains the fix.
-Installer Update cannot deliver it, because the receiver driver is compiled and is
-not part of an update bundle, so an affected system needs a new image.
+Installer Update cannot deliver it, because those files are not in the list a
+release may carry, so an affected system needs a new image.
 
-## The streamed desktop has black bars, or looks soft and washed out
+### The streamed desktop has black bars, or looks soft and washed out
 
 Both are host and client behaviour in Steam, measured on 2026-09-26 and not
 caused by anything this project installs. Record which one you have before
@@ -511,7 +687,7 @@ display in the host's advanced settings.
 percent of the amplitude it left with: black stayed at 0, mid grey 128 arrived as
 81, white 255 arrived as 162, stable across repeated screenshots. That is a linear
 gain, not a limited against full range mismatch, which would lift black to 16, and
-not a colour matrix error, which leaves neutrals alone.
+not a color matrix error, which leaves neutrals alone.
 
 Measurement excluded the source on the sending PC, Gamescope's compositing, HDR,
 hardware decoding and hardware encoding. Software decoding and disabling hardware
@@ -524,7 +700,7 @@ different image build to change it. If you report it, include both directions,
 the capture method and encoder from the host's `streaming_log.txt`, and the
 levels you measure rather than a description.
 
-## Remote Play shows no picture in Desktop Mode but works in Game Mode
+### Remote Play shows no picture in Desktop Mode but works in Game Mode
 
 Receiving a stream with hardware decoding fails on the KDE desktop and is correct
 in Game Mode. Measured on 2026-09-26. The fault is in Steam's client, not in
@@ -556,7 +732,7 @@ both modes up to and including decoder creation, and a different client on the
 same desktop, Moonlight, decodes in hardware without trouble. That rules out the
 GPU, the kernel driver, the compositor and the network.
 
-## Streaming from Desktop Mode runs at about 25 frames per second
+### Streaming from Desktop Mode runs at about 25 frames per second
 
 Steam's outgoing capture on the desktop is limited by capture, not by encoding.
 The host's own report names the step:
@@ -571,26 +747,87 @@ same portal on the same machine logged `Compositor negotiated frame rate: max
 164/1` and paced itself at 60 frames per second. There is nothing to set here.
 Game Mode does not have this limit.
 
-## KDE reports that gamescope crashed when you leave Game Mode
+## Performance overlay
 
-Harmless, and not caused by this project. Leaving Game Mode for the desktop ends
-the Gamescope session, and on the way out Gamescope destroys its Vulkan device
-from a static destructor after the Vulkan library has already been unloaded, so it
-calls into memory that is no longer mapped. The session was ending anyway and
-nothing is lost, but systemd writes a core file each time and KDE may offer to
-report it.
+### GPU readings are zero in the performance overlay
 
-Confirmed on 2026-09-26 against Valve's own `gamescope 3.16.23.6-1` with this
-project's artifact switched off for one session, which crashed the same way, so it
-is not the capture correction. It is reported upstream as
-[ValveSoftware/gamescope#1526](https://github.com/ValveSoftware/gamescope/issues/1526),
-open since September 2024, where the first report carries the same backtrace with
-line numbers and names the global Vulkan device that is destroyed too late. The backtrace ends in `exit`, with
-`CVulkanDevice::~CVulkanDevice` and `CVulkanCmdBuffer::~CVulkanCmdBuffer` above it.
-Old core files can be removed with `sudo journalctl --vacuum-time=1d` or by
-deleting them from `/var/lib/systemd/coredump`.
+The GPU load percentage can work while temperature, clock speed, power and VRAM
+remain at zero. Some MangoApp versions keep the sensor selection from startup
+when you change the overlay detail level. This does not by itself indicate a
+faulty driver. Compare the readings with `nvidia-smi`.
 
-## A game with any 32-bit component crashes a minute or two after launch
+An image built with all components in the [build guide](Build-the-USB-image.md#complete-build) includes the corrected MangoApp. Custom builds include
+it with `--mangoapp-dir`. It refreshes the NVIDIA sensor selection
+continuously. Voltage and junction temperature are hidden for NVIDIA because
+this backend does not provide those readings. Ordinary GPU temperature remains
+available. Levels 3 and 4 show each detected model above its GPU or CPU readings,
+from release 0.1.8; levels 1 and 2 have no such rows, so they show no names. The
+GPU name is shown when one card is in use. On 0.1.0 to 0.1.7 the same overlay
+worked both names out at startup but printed them only in some sessions, so they
+could appear one day and not the next with nothing changed on your PC. The
+readings themselves were never affected by this, only the names.
+The GPU capacity is rounded to whole GB for a compact product label; live VRAM
+usage is shown separately. Other unsupported sensors, such as CPU power or RAM temperature, may
+still be unavailable on a particular computer.
+
+On a build without the correction, select the detailed overlay first, then run
+this command from a terminal in your own user session:
+
+```bash
+systemctl --user restart gamescope-mangoapp.service
+```
+
+This restarts only the performance overlay. Changing its detail level can trigger
+the problem again on an uncorrected build. To check which executable is running:
+
+```bash
+systemctl --user show gamescope-mangoapp.service -p ExecStart
+```
+
+The corrected build uses `/usr/lib/steamos-nvidia/mangoapp`. The original
+`/usr/bin/mangoapp` remains installed. Report the executable path, SteamOS and
+NVIDIA versions when submitting an overlay issue.
+
+## Games, Steam and storage
+
+### Steam login or library disappears
+
+Record whether this happened after a reboot, OS update or USB reinstallation. Check that the intended disk booted. Preserve logs before reinstalling.
+
+Use an image built from the current script if an older installer repeatedly clears Steam data. Updating the installer cannot recover already deleted files. Restore those from a backup.
+
+If the games are on a second drive or a network share rather than on the system disk, check that
+the drive is still mounted before you preserve logs or reinstall. See the next entry.
+
+### An extra drive or a network share is no longer mounted
+
+After a SteamOS update, or after changing the NVIDIA driver, a second drive or a network share is
+not mounted any more, and Steam cannot find a library kept on it.
+
+If you had added the drive to `/etc/fstab`, that line is gone. SteamOS replaces `/etc` on every
+update and keeps only a short list of exceptions, and `/etc/fstab` is not on it. A driver change
+ends in the same step, so it has the same effect. Nothing in this project changes that, and
+reinstalling does not prevent it. Nothing on the drive itself is altered, so your files are still
+there once it is mounted again.
+
+Your old lines are set aside before they are removed, and you can read them back:
+
+```bash
+cat /etc/previous/fstab
+```
+
+Copy the lines you need into a systemd mount unit, which does survive an update. The template, the
+mount point rule, the pitfalls and the same advice for a network share are in [Keeping extra drives mounted across updates](Updates-and-recovery.md#keeping-extra-drives-mounted-across-updates).
+This was measured on SteamOS, through a driver change and through an OS update from 3.8.16 to
+3.8.28.
+
+### A game fails but the desktop works
+
+Test a second game and record the Proton version. Compare a 64-bit game with one using a 32-bit component. If available, `vulkaninfo --summary` provides another graphics check; it is not included in the diagnostic script and may not be installed.
+
+Temporarily test without overlays and record whether MangoHud changes the result.
+
+### A game with any 32-bit component crashes a minute or two after launch
 
 Not caused by anything this project installs, and not present on images it
 builds, but worth naming because nothing in the symptom points at the cause.

@@ -58,8 +58,10 @@ bunzip2 -k steamdeck-oobe-repair-20260707.10-3.8.14.img.bz2
 echo "f9aa0fa2dd618febf28a5e2a583d1e2b5a8ca3f1205be965da584602ac962f40  steamdeck-oobe-repair-20260707.10-3.8.14.img" | sha256sum -c -
 ```
 
-The last command must print `OK`. If it prints `FAILED`, download and unpack the
-archive again.
+If you downloaded exactly the file named above, the last command must print `OK`, and if it
+prints `FAILED` you should download and unpack the archive again. If you downloaded any
+other release it will print `FAILED`, and that is expected rather than a sign of a damaged
+download. Read the next paragraph before downloading anything again.
 
 If Valve's page offers a different file name or SteamOS version, the checksum above
 will not match and cannot: it belongs to the 3.8.14 file. Compare against the value
@@ -151,7 +153,8 @@ in its own private mount namespace, so `findmnt` does not show them.
   on Bazzite.
 - Loop device or mount permission errors in Distrobox: the container was created
   without `--root`. Create a rootful container as shown above.
-- The recovery image checksum differs: download and unpack the archive again.
+- The recovery image checksum differs: if you downloaded the 3.8.14 file,
+  download and unpack the archive again. Any other release has its own checksum, so the value on this page cannot match it. Compare against the checksum Valve lists for the file you downloaded, if its page offers one.
 - The build stops with `Driver copy failed` and `build.log` contains
   `rsync: failed to open files-from file ... Permission denied`: the build was
   started as a system service, for example with `systemd-run`. SELinux then

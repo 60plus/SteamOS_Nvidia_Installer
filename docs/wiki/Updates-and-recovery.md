@@ -2,6 +2,11 @@
 
 # Updates and recovery
 
+This page covers SteamOS updates, the NVIDIA driver and recovery. The tools this
+project adds are updated by their own shortcut, **SteamOS NVIDIA Installer
+Update** in Desktop Mode; see
+[Installer updates](Installer-Updates.md).
+
 ## Update from Steam
 
 Use Steam's normal system update interface. Keep at least 9 GiB free on `/home`
@@ -17,6 +22,31 @@ when the update finishes, then check your display, audio, controller and a game.
 
 OS updates keep the currently pinned driver version. A Steam client update is
 separate from a SteamOS update; check the OS version in system settings.
+
+### Check the Gamescope build after an update
+
+The Gamescope build this project ships is matched to one exact SteamOS gamescope package. If an OS
+update brings a different gamescope package, or moves the system off the 3.8 line, the update
+still succeeds, but the new slot keeps SteamOS's own Gamescope instead of ours. This is
+deliberate. A newer Gamescope from Valve is left in place rather than being replaced by the older
+patched build. While SteamOS's own Gamescope is in use, the corrections this project carries are
+not applied, so the corrupted Game Mode menus that release 0.2.0 clears can appear again. Nothing
+on screen announces the change, so read the recorded selection after the reboot:
+
+```bash
+cat /usr/lib/steamos-nvidia/gamescope/status.txt
+```
+
+A line beginning `capture-backport` means this project's Gamescope is in use. A line beginning
+`stock` means it is not, and the corrections it carries, including the menu fix, are not applied
+on that build. The capture color correction is a backport, so a newer Gamescope from SteamOS may
+already carry that part. The menu fix is this project's own change and is in no SteamOS build, so
+on `stock` the corrupted menus can come back and stay until a build matched to the new package is
+released. That is why this check is worth running after an OS update rather than treating it as a
+formality. The same line appears in the diagnostic report as **Experimental Gamescope selection**.
+If the file does not exist at all, the image was built without this project's Gamescope artifact,
+usually by the base only build command, so there is nothing to select. Report the whole line
+together with your SteamOS version.
 
 ## Keeping extra drives mounted across updates
 
@@ -221,9 +251,10 @@ Keep the working installer USB. Boot it to reach the recovery desktop and copy
 logs or back up files from the installed disk. If you have a usable text console,
 try `Ctrl+Alt+F4`, log in as `deck` and collect diagnostics.
 
-The Upgrade shortcut can reinstall the OS while retaining the data partition on
-a recognized SteamOS layout. It is not a substitute for a backup. Fresh Install
-erases the selected disk.
+The **Upgrade SteamOS (NVIDIA) - keeps games & data** shortcut can reinstall the
+OS while retaining the data partition on a recognized SteamOS layout. It is not a
+substitute for a backup. **Install SteamOS (NVIDIA) to Disk** erases the selected
+disk.
 
 The repair checks the staged slot before enabling it. Automatic recovery from
 power loss or a failed graphical boot is not guaranteed; the optional [Safe Graphics](Safe-Graphics.md) session must be selected manually
@@ -356,3 +387,16 @@ Use a separate test disk and keep the stable installer. Main is not selected
 by either option. An unfamiliar update format is rejected
 before our repair hook is installed; do not bypass that check by manually
 marking the new slot valid.
+
+This project's Gamescope build is selected only on the SteamOS 3.8 line, and Preview has moved on
+to 3.9, so a Preview installation uses the SteamOS build and does not carry the menu fix. The
+corrupted menus can therefore come back there; the Preview build has not been tested for this.
+Read the recorded selection after first setup:
+
+```bash
+cat /usr/lib/steamos-nvidia/gamescope/status.txt
+```
+
+A line beginning `stock` means this project's build is not in use. Applying a
+project release on the 3.9 line has not been tested, and it would not change
+this selection.

@@ -151,6 +151,18 @@ unexpected paths and links, and limits download size. It accepts a fixed list of
 project files rather than arbitrary filesystem replacements. Confirmation pins
 the manifest digest so a changed release must be checked again.
 
+That list belongs to the tool already installed, not to the release, so a release
+can only place files the installed version already knows how to place. From 0.1.8
+a system whose installed version predates a list entry installs the rest, names the
+new file in the output of the update check as one it will not install, and then
+reports itself up to date without it. Versions before 0.1.8 refuse such a release
+outright, which is why an unknown name is now ignored rather than treated as an
+error: refusing it would have stranded every older installation. Introducing a new
+kind of file therefore takes two installations: the first delivers the tool that
+knows the new name, and a later release with a higher version gives that tool a
+run in which to place the file. The order of installation matters whenever a
+release introduces a new kind of file.
+
 Integration updates share the driver's transaction lock, staging mechanism and
 rollback record. They retain the selected NVIDIA driver and verify it rather
 than rebuilding it unnecessarily. New helpers and policies are applied to the
@@ -223,9 +235,11 @@ supported BGR layout and decodes screenshot channels in the matching order.
 The shared capture pool also requests sampled-image usage: the RGB-to-NV12
 shader reads these textures. Missing that usage can produce black video even
 when the local game renders normally.
-This targets swapped red and blue in PipeWire capture, including Remote Play,
-and AVIF screenshots. It does not change the monitor mode, HDR defaults, kernel,
-or NVIDIA driver, and is not a fix for HDMI HDR failures.
+This backport targets swapped red and blue in PipeWire capture, including Remote
+Play, and AVIF screenshots. It does not change the monitor mode, HDR defaults,
+kernel, or NVIDIA driver, and is not a fix for HDMI HDR failures. The same build
+also carries this project's own fix for corrupted Game Mode menus on NVIDIA,
+described below.
 
 `tools/build-gamescope.sh` builds from a pinned source revision in a disposable
 stable build root. The output contains a staged installation tree, source and
@@ -247,13 +261,58 @@ A recovery image keeps the stock binary. The A/B repair hook carries the artifac
 into the updated slot and reevaluates compatibility before activation. A future
 or unsupported version returns to stock Gamescope automatically.
 
-Installer Update preserves an already installed artifact and reevaluates this
-policy; it does not currently distribute a new Gamescope artifact. Diagnostics
+Installer Update preserves an already installed artifact, reevaluates this policy,
+and since 0.1.9 can also deliver the Gamescope artifact itself. The binary, its
+provenance file and its license form one group that is installed in full or not at
+all, written to the paths the existing installer check already reads, so the same
+verification of binary against provenance runs whether the artifact arrived with an
+image or with a release. Delivery is not the same as activation: an artifact built
+from a source commit the installer does not recognize is refused, and the selection
+rule above is then applied exactly as it is after a fresh installation, so a system
+whose SteamOS ships a different Gamescope package keeps Valve's build. Diagnostics
 include the selected status and session environment. The shipped-file checksum
 manifest covers the capture binary, provenance and licenses. Generated status
 and the version-dependent service selection are excluded because they change
 when an OS update activates the backport or returns to stock. Physical capture tests are
 still required before treating the correction as verified on a particular GPU.
+
+## Game Mode menu corruption on NVIDIA
+
+The Gamescope build described under Capture-color correction fixes this fault. On a build without
+that change, Gamescope can hand the game and Steam's interface to separate hardware planes and let
+the display driver blend them there instead of composing the frame itself. On NVIDIA that blend is
+wrong, and the result is displaced fragments of the interface, black rectangles and colored bands
+over much of the screen. It showed in the Game Mode menus, and at a lower output resolution it
+could also appear in the Steam interface with no game running. Composing the same frame is
+correct, which is why turning the performance overlay on, turning HDR on, or moving the image
+scale away from one to one used to clear it. Each of those forced composition for its own reason,
+and none of them is needed any more.
+
+`patches/gamescope/0003-nvidia-alpha-composition.patch` is this project's own
+change, not a backport. The finding and the change were reported upstream, on the
+Gamescope issue that describes this symptom,
+[gamescope#1964](https://github.com/ValveSoftware/gamescope/issues/1964).
+When more than one layer is present and a layer other than
+the base layer is not fully opaque or asks for alpha blending, it refuses the plane
+route before a request is built, so no atomic request is rolled back by a policy
+choice, and composes the frame instead. The decision is taken once, from the
+display device that was actually opened and never from the render GPU, and only
+when the kernel reports that device as `nvidia-drm`, so a machine whose screen
+hangs off an AMD or Intel output is untouched. It is on by default, and the chosen
+policy is written to the Gamescope log at startup.
+
+Setting `GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=0` in the Gamescope session environment
+switches off this one reason to compose a frame, for comparison during a test; `1`
+asks for it explicitly. Every other reason Gamescope already had to compose still
+applies either way, and the variable cannot turn the policy on for a display that
+is not NVIDIA. There is no reason to set it in normal use.
+
+The fix travels in the Gamescope artifact, so it reaches a system either with a new
+image or with a signed release that carries that artifact, provided the installed
+tools are already 0.1.9 or later. An installation on older tools has to reach 0.1.9
+first, and receives the artifact with the release after that. See
+[Updating from an older installer](Installer-Updates.md#updating-from-an-older-installer)
+for the order. It was published in 0.2.0.
 
 ## Code map and contributing
 
@@ -266,6 +325,9 @@ still required before treating the correction as verified on a particular GPU.
 | Signed integration updates | `scripts/installer-update.py`, `scripts/installer-update-ui.py` |
 | Release package creation | `tools/build-installer-release.py` |
 | Read-only support report | `scripts/steamos-nvidia-diagnostics` |
+| Patches applied to upstream components | `patches/gamescope/`, `patches/mangohud/`, `patches/nvidia-vaapi-driver/` |
+| Optional component builders | `tools/build-mangoapp.sh`, `tools/build-gamescope.sh`, `tools/build-remote-play.sh`, `tools/build-nvenc.sh` |
+| Complete image build wrapper | `tools/build-complete.sh` |
 | Helper and transaction tests | `tests/` |
 
 For a contribution, describe the failing behavior and how to reproduce it, link
@@ -289,6 +351,18 @@ The receiver artifact included by the complete build in the [build guide](Build-
 single memory object, which Steam's Vulkan importer requires. Build it with
 `tools/build-remote-play.sh` and include it with `--remote-play-dir`.
 
+A second correction in the same artifact ends a hang at the end of a session. A
+decoded surface can stay marked as still resolving after the thread that would
+clear the mark has gone, and the wait for it had no time limit, so the next export
+or sync call on that surface never returned. The receiver's main thread then sat
+waiting at no CPU, ignored an ordinary stop request, and Gamescope held its last
+black frame on screen for as long as the window existed, which reads as the machine
+hanging after leaving a game. The patch releases every surface an ending resolve
+thread abandons, so a normal teardown wakes all waiters at once, and bounds the
+remaining waits against one shared deadline, logging which surface it gave up on.
+The trade is one possibly stale frame in place of a process that cannot be closed.
+It was reported upstream.
+
 The artifact lives under `/usr/lib/steamos-nvidia/remote-play`. Steam's user service
 loads a small environment helper with matching 32-bit and 64-bit libraries. The
 64-bit helper checks the executable name and applies the decoder settings only
@@ -298,7 +372,7 @@ The receiver uses SDR because its X11 display detection can select HDR10 even wh
 Game Mode HDR output is off. This does not disable HDR for local games.
 
 The repair hook copies and verifies the artifact in the updated A/B slot and
-recreates the service configuration. Installer Update does not yet distribute this
+recreates the service configuration. This artifact is not in the list a release may carry, so Installer Update does not distribute this
 optional binary artifact.
 
 Steam runs under two different user services, and the policy is applied to both:
@@ -343,7 +417,7 @@ The 64-bit receiver keeps its separate decoder and NV12 color correction. The
 encoding bridge does not change receiver HDR policy or add HDR streaming support.
 The repair hook copies the private artifact into the new A/B slot, verifies its
 hashes and loader dependencies, then recreates the driver, service and Steam drop-in.
-The addon manifest covers those files. Installer Update does not yet distribute
+The addon manifest covers those files. This artifact is not in the list a release may carry, so Installer Update does not distribute
 this optional binary artifact to systems built without it.
 
 Device testing on RTX 5060 confirmed HEVC SDR encoding, reconnect and automatic
@@ -416,9 +490,14 @@ a session. A brief UI reload can occur at startup.
 
 An unknown client asset is skipped without a reload. A new client version needs
 a reviewed hash and visual testing. A client update later in the same session may
-restore the original; the next Game Mode start checks again. Direct Desktop Mode
-launches do not run this service, although the patched asset is shared with
-desktop Big Picture. The current workaround has been tested after restart, from
+restore the original; the next Steam start checks again. Since 0.1.8 the startup
+hook is attached to both Steam services, `steam-launcher.service` in Game Mode and
+instances of `app-steam@.service` from the desktop, so starting Steam from the
+desktop runs the same check. The client asset is shared, so Game Mode and desktop
+Big Picture show the same result. From 0.1.2 to 0.1.7 the hook reached the Game
+Mode launcher only, so a client verification during a desktop session left the
+original asset in place until Steam was next started in Game Mode. The current
+workaround has been tested after restart, from
 Beta to Preview and back to Stable. Those tests used the supported client builds;
 they do not establish compatibility with future client releases. Fresh installation and its first system update have also been verified.
 

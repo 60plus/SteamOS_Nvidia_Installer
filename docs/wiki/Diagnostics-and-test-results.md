@@ -32,6 +32,17 @@ You can read it directly with:
 grep '^Installer version:' /usr/lib/steamos-nvidia/build-info.txt
 ```
 
+That is the release the image was built from. The release your tools are on,
+which is what decides whether an update can carry Gamescope, is a different
+file:
+
+```bash
+cat /usr/lib/steamos-nvidia/integration-version.json
+```
+
+The two differ on any system whose tools have been updated since it was
+installed.
+
 The Installed integration version section shows tools updated after installation,
 where the desktop updater is included. Original image build remains unchanged.
 
@@ -50,15 +61,48 @@ hardware compatibility report to share results from your PC. Keep separate
 problems in separate reports. Mark untested features as Not tested rather than
 assuming they work. A hardware report should include both successes and limits.
 
+Open a report from the [Issues](https://github.com/60plus/steamos-nvidia-installer/issues)
+page and choose one of those three forms. Blank issues are turned off, so start
+from a form rather than an empty page.
+
 ## What to include with a support request
 
 - CPU, GPU and monitor or TV model.
 - HDMI or DisplayPort, adapters, resolution, refresh rate, HDR and VRR state.
+- For a resolution or refresh rate problem, the saved Game Mode display mode.
+- For a Game Mode display fault, the Gamescope composition policy line.
 - SteamOS version and the image filename used to install it.
 - Whether the problem happens from USB, after installation or after an update.
 - Steps to reproduce and the exact error.
 - Whether a text console works and whether restarting changes anything.
 - For controllers: model, Bluetooth or USB connection and which buttons fail.
+
+Game Mode records the resolution and refresh rate you picked for each display in
+`~/.config/gamescope/modes.cfg`. It records the choice even when the picture did
+not change, so it separates a choice that was never saved from a choice that was
+saved and then ignored. If the file is not there, say so in the report rather
+than treating it as damage.
+
+Gamescope prints one line when Game Mode starts that says whether the correction
+for the corrupted Game Mode menus is in effect on this display. Read it in
+Desktop Mode or over SSH as your normal user:
+
+```bash
+journalctl --user -b -u gamescope-session.service | grep 'composition policy'
+```
+
+If that prints nothing, drop the unit and search the whole boot instead:
+
+```bash
+journalctl --user -b | grep 'composition policy'
+```
+
+The line is printed only when Game Mode starts, and both commands look at the current boot only,
+so nothing will be found if this machine has not been in Game Mode since it was switched on. If
+nothing is printed either way, say so in the report rather than leaving it out. A system running
+the SteamOS Gamescope build does not carry the correction. The section Which Gamescope is in use,
+below, says which build this machine is running, and that is what decides it rather than the
+installer version.
 
 Attach the report as a file rather than sending many photos of scrolling output.
 
@@ -87,15 +131,49 @@ The report includes the booted slot, root filesystem source, installed NVIDIA
 package, module version on disk and loaded module version. Differences can help
 identify a pending restart or an incomplete driver repair.
 
-Addon checks compare the shipped HDR initializer, Safe Graphics, Bluetooth audio
-helper and service files with their recorded checksums. They also check the
-required command and activation links. A failed check identifies an installation
-problem; passing checks do not prove that a display or audio device works.
-User HDR choices and the optional Safe Graphics setting are not overwritten.
+Addon checks compare the files this project installed with their recorded
+checksums: the HDR initializer, Safe Graphics, the Bluetooth audio helper, the
+diagnostics command, the installation helper, the service files, and whichever
+optional components the image carries, such as the notification fix, the
+performance overlay, this project's Gamescope build, Remote Play, NVENC, the
+driver tools and the desktop updater. Generated status files and the
+version-dependent choice of session files are left out on purpose, because a
+system update can change them. The checks also confirm the required command and
+activation links. A failed check identifies an installation problem; passing
+checks do not prove that a display or audio device works. User HDR choices and
+the optional Safe Graphics setting are not overwritten.
 
 The completion marker records a successful slot repair. Its presence alone does
 not prove that the current boot or an application is healthy. Effective user
 service definitions are included to help spot local overrides.
+
+
+## Which Gamescope is in use
+
+The report has a section named `Experimental Gamescope selection`. It reads
+`capture-backport` when this project's own Gamescope build is in use, or `stock`
+when the SteamOS build is in use, followed in brackets by the Gamescope package
+the system has installed, or `unknown` when that could not be read. The
+corrected Game Mode menu behaviour on NVIDIA is part of this project's build, so
+a report that reads `stock` explains straight away why menus still look wrong.
+
+You can read the same line directly:
+
+```bash
+cat /usr/lib/steamos-nvidia/gamescope/status.txt
+```
+
+The next section, `Game Mode executable search path`, shows whether the session
+was pointed at this project's build. It also shows
+`GAMESCOPE_NVIDIA_COMPOSITE_ALPHA` when the menu correction has been turned off
+in a service override.
+
+The choice is made when the system is installed or repaired. It returns to `stock` on purpose when
+SteamOS ships a different Gamescope package than the one this project's build was made from, when
+the SteamOS release is outside the 3.8 line, or when SteamOS changes the way its session starts
+Gamescope, so `stock` is not by itself an installation fault. On an image that carries no
+Gamescope build of this project the file is absent and the section reports that it could not be
+read.
 
 
 ## NVIDIA library compatibility

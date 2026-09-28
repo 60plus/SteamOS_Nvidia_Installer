@@ -10,7 +10,8 @@ The project's own Windows builds ran in an Arch Linux guest under QEMU with
 hardware acceleration. Any hypervisor works as long as the guest runs an ordinary
 Linux distribution kernel. The VirtualBox route below was then followed on
 Windows 11 and produced a complete, verified image. Read
-[Validation](#validation) for what that test covered and what it did not.
+[Validation](#validation) for what that test covered and what it did
+not.
 
 ## Why a virtual machine, not WSL or Docker
 
@@ -109,8 +110,9 @@ Compare with `sha256sum ~/steamos-build/input/recovery.img` inside Linux.
 
 ## Check and build
 
-Download the source archive for [release 0.1.7](https://github.com/60plus/steamos-nvidia-installer/releases/tag/v0.1.7), or clone tag `v0.1.7`, inside Linux. Keep the full
-checkout. From its root run:
+Download and extract **Source code (zip)** from
+[Releases](https://github.com/60plus/steamos-nvidia-installer/releases), or
+clone the repository, inside Linux. Keep the full checkout. From its root run:
 
 ```bash
 sudo bash tools/check-build-host.sh "$HOME/steamos-build/input/recovery.img" "$HOME/steamos-build/work"
@@ -131,12 +133,16 @@ sudo bash ./steamos-nvidia-installer.sh \
   2>&1 | tee "$HOME/steamos-build/build.log"
 ```
 
-The base command does not include all release extras. Use
-[Complete build](Build-the-USB-image.md#complete-build) to prepare a disposable
-SteamOS root and build/include the overlay, Remote Play fixes and updater. The
-Arch VM is the host, not a substitute for that SteamOS build root. Preparing that
-root remains a separate prerequisite described in the complete build guide.
-The host probe does not validate the SteamOS version or artifact compatibility.
+The base command does not include all release extras. Use [Complete
+build](Build-the-USB-image.md#complete-build) to prepare a disposable SteamOS root and build/include the performance
+overlay, the corrected Gamescope, Remote Play receiver support, the NVENC bridge and the updater.
+The corrected Gamescope is the part that repairs the corrupted Game Mode menus on NVIDIA, so an
+image built with the base command alone does not carry that fix. That command also sets up no
+updater, so an installation made from such an image cannot be sent the fix later. The complete
+build includes both, and a base build can be given the updater with `--installer-update-source`.
+The Arch VM is the host, not a substitute for that SteamOS build root. Preparing that root remains
+a separate prerequisite described in the complete build guide. The host probe does not validate
+the SteamOS version or artifact compatibility.
 
 Keep Windows and the guest awake. Compilation can produce little output for a
 while; inspect the log before assuming a freeze.
