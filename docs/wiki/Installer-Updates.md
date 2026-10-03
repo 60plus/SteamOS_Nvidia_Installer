@@ -175,7 +175,7 @@ Release 0.2.2 moves this project to a new repository. On your system the change 
 file, `/usr/lib/steamos-nvidia/installer-update-source.json`, which holds the address the
 update tool asks for releases.
 
-0.2.2 is planned for publication on the old repository as well, so an installation already
+0.2.2 is available on the old repository as well, so an installation already
 updating from there finds the release where it already looks. Applying it writes the new
 address into the system slot being prepared, and that address is in use once you restart
 into that slot.
@@ -197,13 +197,15 @@ Three things the update deliberately leaves alone:
   still migrates.
 * **The slot you can return to.** Every system slot carries its own copy of that file, so
   returning to the previous system also returns the previous address. That slot asks the
-  old repository, where 0.2.2 is planned to be published too, so it can be applied again.
+  old repository, where 0.2.2 remains available, so it can be applied again.
 
 The old repository stays in place and keeps serving the releases already published. No
 installation loses its update channel because of the move.
 
-This describes what the release is built to do. The move has not yet been exercised on a
-machine, and this page will be corrected if a test shows it behaves otherwise.
+Hardware checks on one system confirmed the source transition, standard rollback and
+discovery of the published 0.2.2 update from the old repository. The installation test used
+local delivery of the signed package through the existing A/B transaction. A complete
+installation from the public release through the desktop window remains unverified.
 
 ## Return to the previous system
 

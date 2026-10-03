@@ -11,8 +11,8 @@ with a controller or switch to Desktop Mode when you need a full Linux desktop.
 [Get started](https://github.com/60plus/SteamOS_Nvidia_Installer/wiki) · [Build your USB image](https://github.com/60plus/SteamOS_Nvidia_Installer/wiki/Build-the-USB-image) · [Troubleshooting](https://github.com/60plus/SteamOS_Nvidia_Installer/wiki/Troubleshooting)
 
 > **This is the project's new home.** Earlier releases were published from `60plus/steamos-nvidia-installer`,
-> which stays in place and keeps serving them. Release 0.2.2 is planned for publication in both places,
-> and is built to move an existing installation's update channel here by itself, without touching
+> which stays in place and keeps serving them. Release 0.2.2 is available in both places
+> and moves an existing installation's official update channel here, without changing
 > a verification key or an update configuration that points somewhere else. See
 > [Update installer tools](https://github.com/60plus/SteamOS_Nvidia_Installer/wiki/Installer-Updates) for what it
 > changes, and for the stepping order that still applies below 0.1.9.

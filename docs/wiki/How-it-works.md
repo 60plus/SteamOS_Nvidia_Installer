@@ -177,7 +177,7 @@ inactive root. The old image build metadata is preserved; a separate
 
 ### Repository transition in 0.2.2
 
-The prepared 0.2.2 transition uses the existing signed archive contract. After the
+The 0.2.2 transition uses the existing signed archive contract. After the
 installed updater writes the new payload to the prepared root, it sources that
 root's `pc-support.sh`. Its `pc_install_installer_update` hook calls the new
 updater's `migrate-source` command before addon hashes are recorded.
@@ -192,8 +192,10 @@ written atomically, and read back before `pc_write_addon_manifest` records it.
 An installed update already verifies the inactive device before this hook runs.
 The image builder uses the same hook for a mounted recovery image. The running
 system's configuration is not rewritten by the update transaction; reboot selects
-the prepared slot and its new source. These paths have automated coverage, while
-hardware acceptance of the repository transition is still pending.
+the prepared slot and its new source. Automated tests cover these paths. Hardware checks
+on one system confirmed the source transition and standard rollback using local delivery
+of the signed package, then discovery of the published update. A complete installation
+from the public release through the desktop window remains unverified.
 
 This mechanism cannot deliver every possible change to image building or disk
 layout. Such changes may still need a new installer. See
