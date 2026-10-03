@@ -61,7 +61,7 @@ hardware compatibility report to share results from your PC. Keep separate
 problems in separate reports. Mark untested features as Not tested rather than
 assuming they work. A hardware report should include both successes and limits.
 
-Open a report from the [Issues](https://github.com/60plus/steamos-nvidia-installer/issues)
+Open a report from the [Issues](https://github.com/60plus/SteamOS_Nvidia_Installer/issues)
 page and choose one of those three forms. Blank issues are turned off, so start
 from a form rather than an empty page.
 

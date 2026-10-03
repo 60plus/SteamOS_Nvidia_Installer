@@ -111,7 +111,7 @@ Compare with `sha256sum ~/steamos-build/input/recovery.img` inside Linux.
 ## Check and build
 
 Download and extract **Source code (zip)** from
-[Releases](https://github.com/60plus/steamos-nvidia-installer/releases), or
+[Releases](https://github.com/60plus/SteamOS_Nvidia_Installer/releases), or
 clone the repository, inside Linux. Keep the full checkout. From its root run:
 
 ```bash
@@ -157,7 +157,7 @@ driver. Enter the guest account password when SSH or sudo asks for it.
 
 ```powershell
 ./tools/build-on-windows.ps1 -Guest builder@127.0.0.1 -Port 2222 `
-  -Repository /home/builder/steamos-nvidia-installer `
+  -Repository /home/builder/SteamOS_Nvidia_Installer `
   -Image /home/builder/steamos-build/input/recovery.img `
   -WorkDirectory /home/builder/steamos-build/complete-01
 ```

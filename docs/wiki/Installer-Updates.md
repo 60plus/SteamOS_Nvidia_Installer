@@ -149,6 +149,42 @@ several releases on a working system.
 Changes to the complete image builder are available in the source archive. They
 do not require rebuilding a working installation just to receive runtime fixes.
 
+## Where updates come from after 0.2.2
+
+Release 0.2.2 moves this project to a new repository. On your system the change is one
+file, `/usr/lib/steamos-nvidia/installer-update-source.json`, which holds the address the
+update tool asks for releases.
+
+0.2.2 is planned for publication on the old repository as well, so an installation already
+updating from there finds the release where it already looks. Applying it writes the new
+address into the system slot being prepared, and that address is in use once you restart
+into that slot.
+
+**From 0.1.9 onwards there is nothing to do by hand**, because the update window offers the
+newest release directly. Below 0.1.9 the stepping order in the section above applies first
+and this release does not shorten it: tools on 0.1.8 or older cannot receive the Gamescope
+build and have to reach 0.1.9, and tools older than 0.1.8 have to reach 0.1.8 before that.
+
+Three things the update deliberately leaves alone:
+
+* **The verification key.** Releases are signed with the same key before and after the
+  move. An installation that never takes 0.2.2 keeps checking for updates normally.
+* **Any configuration that is not this project's own public channel.** The address is
+  amended only where all five fields still match the configuration this project shipped,
+  the key included. An image built with `--installer-update-source` pointing at a custom
+  configuration, or one where any of those five fields was changed, is left exactly as it
+  is. Only formatting is ignored, so a reindented copy of the project's own configuration
+  still migrates.
+* **The slot you can return to.** Every system slot carries its own copy of that file, so
+  returning to the previous system also returns the previous address. That slot asks the
+  old repository, where 0.2.2 is planned to be published too, so it can be applied again.
+
+The old repository stays in place and keeps serving the releases already published. No
+installation loses its update channel because of the move.
+
+This describes what the release is built to do. The move has not yet been exercised on a
+machine, and this page will be corrected if a test shows it behaves otherwise.
+
 ## Return to the previous system
 
 Open the tool and choose **Return to previous system**, then restart after it

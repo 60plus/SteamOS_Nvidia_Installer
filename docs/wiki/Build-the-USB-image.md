@@ -118,12 +118,12 @@ or every hardware configuration.
 ## Get the repository
 
 Download and extract **Source code (zip)** or **Source code (tar.gz)** from
-[Releases](https://github.com/60plus/steamos-nvidia-installer/releases) and
+[Releases](https://github.com/60plus/SteamOS_Nvidia_Installer/releases) and
 keep the whole archive, or clone the repository on Linux:
 
 ```bash
-git clone https://github.com/60plus/steamos-nvidia-installer.git
-cd steamos-nvidia-installer
+git clone https://github.com/60plus/SteamOS_Nvidia_Installer.git
+cd SteamOS_Nvidia_Installer
 ```
 
 Keep the full checkout. The main script needs the files in `lib` and

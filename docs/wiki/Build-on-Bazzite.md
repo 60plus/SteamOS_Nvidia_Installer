@@ -80,7 +80,7 @@ From the repository folder, run the default
 [complete build](Build-the-USB-image.md#complete-build):
 
 ```bash
-cd ~/steamos-build/steamos-nvidia-installer
+cd ~/steamos-build/SteamOS_Nvidia_Installer
 sudo bash tools/build-complete.sh ~/steamos-build/input/steamdeck-oobe-repair-20260707.10-3.8.14.img
 ```
 
@@ -113,7 +113,7 @@ build:
 
 ```bash
 sudo pacman -Syu --needed git python btrfs-progs rsync curl kmod zstd binutils util-linux tar gzip xz e2fsprogs dosfstools
-cd ~/steamos-build/steamos-nvidia-installer
+cd ~/steamos-build/SteamOS_Nvidia_Installer
 sudo bash tools/build-complete.sh ~/steamos-build/input/steamdeck-oobe-repair-20260707.10-3.8.14.img
 ```
 
