@@ -426,12 +426,28 @@ startup limitations. Safe Graphics has not removed this symptom.
 
 ### KDE reports that gamescope crashed when you leave Game Mode
 
-Harmless, and not caused by this project. Leaving Game Mode for the desktop ends
-the Gamescope session, and on the way out Gamescope destroys its Vulkan device
-from a static destructor after the Vulkan library has already been unloaded, so it
-calls into memory that is no longer mapped. The session was ending anyway and
-nothing is lost, but systemd writes a core file each time and KDE may offer to
-report it.
+Not caused by this project, and it does not interrupt what you were doing. Leaving
+Game Mode for the desktop ends the Gamescope session, and on the way out Gamescope
+faults while destroying its Vulkan device from a static destructor: it calls
+`vkFreeCommandBuffers` through its own dispatch table, and by then the address in
+that table is not mapped to anything, so the process dies on the instruction fetch
+instead of exiting cleanly. The desktop starts normally a few seconds later.
+
+What is measured, and what is not. The faulting address, the signal code and the
+dispatch table entry were read out of core files on 3 October 2026 for two different
+builds of the compositor, and both agree. **Why** that address stopped being mapped is
+not established, so this page does not name a library as responsible. How often it
+happens has not been measured either. Each occurrence writes a core file, which costs
+disk space and a little time.
+
+**No crash dialog appears**, despite the heading above, and that was checked rather than
+assumed on 3 October 2026. KDE's handler does start, but it looks for KCrash metadata
+that Gamescope never writes, logs `Nothing handled the dump`, and stops. Two crashes on
+the test machine produced no window, which was checked on the screen rather than assumed.
+So on a
+SteamOS desktop the only trace you are likely to notice is the disk the dumps use: two
+of them came to 20 MB. They are kept on the shared offload area under
+`/var/lib/systemd/coredump`, so they survive a reboot and an A/B switch.
 
 Confirmed on 2026-09-26 against Valve's own `gamescope 3.16.23.6-1` with this
 project's artifact switched off for one session, which crashed the same way, so it
@@ -440,8 +456,12 @@ is not the capture correction. It is reported upstream as
 open since September 2024, where the first report carries the same backtrace with
 line numbers and names the global Vulkan device that is destroyed too late. The backtrace ends in `exit`, with
 `CVulkanDevice::~CVulkanDevice` and `CVulkanCmdBuffer::~CVulkanCmdBuffer` above it.
-Old core files can be removed with `sudo journalctl --vacuum-time=1d` or by
-deleting them from `/var/lib/systemd/coredump`.
+Core files are kept separately from the journal, so `journalctl --vacuum-time` does
+not clear them: it removes archived journal files only. The dumps themselves live in
+`/var/lib/systemd/coredump`, `coredumpctl list` shows what is there, and how long they
+are kept is decided by `systemd-tmpfiles` together with the limits in
+`/etc/systemd/coredump.conf`. `sudo systemd-tmpfiles --clean` applies that policy, and
+a single file can be removed from that directory directly.
 
 ## Sound
 
