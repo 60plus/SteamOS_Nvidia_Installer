@@ -154,14 +154,20 @@ the manifest digest so a changed release must be checked again.
 That list belongs to the tool already installed, not to the release, so a release
 can only place files the installed version already knows how to place. From 0.1.8
 a system whose installed version predates a list entry installs the rest, names the
-new file in the output of the update check as one it will not install, and then
-reports itself up to date without it. Versions before 0.1.8 refuse such a release
-outright, which is why an unknown name is now ignored rather than treated as an
-error: refusing it would have stranded every older installation. Introducing a new
-kind of file therefore takes two installations: the first delivers the tool that
-knows the new name, and a later release with a higher version gives that tool a
-run in which to place the file. The order of installation matters whenever a
-release introduces a new kind of file.
+new file in the output of the update check as one it will not install, and stamps
+the new version while leaving that file unchanged or absent. Versions before
+0.1.8 refuse such a release outright. When the running tool does not know a new
+file name, two installations can be needed: the first delivers the tool that
+knows it, and, after a restart, the second places the file. The second installation
+does not require a higher release number.
+
+From 0.2.1, `offer()` returns `repair` when the installed and offered versions
+match but `payload_state()` finds missing files, symlinks or non-regular files,
+or unreadable files or checksum differences in the Gamescope or performance-overlay
+groups. The desktop window lists those files and offers to apply the same signed
+release again. Other recognized payload files are checked for presence and regular-file
+type, not byte equality. A newer release is offered as an ordinary update. Both paths use
+the existing signed A/B transaction; they do not rewrite the active system.
 
 Integration updates share the driver's transaction lock, staging mechanism and
 rollback record. They retain the selected NVIDIA driver and verify it rather

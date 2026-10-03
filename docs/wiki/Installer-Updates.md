@@ -64,8 +64,9 @@ before you update.
 
 Release packages carry the complete current set of installer tools, so from 0.1.9 onwards the
 update window always offers the newest release and you do not have to install the releases in
-between. Below 0.1.9 you do, and the order is given here. Two limits apply. An installed version
-writes only the files it was built knowing about, so a file that was added to the list in a later
+between. Older tools need extra steps; the sequence below avoids skipped files.
+Two limits apply. An installed version writes only the files it was built knowing about,
+so a file that was added to the list in a later
 release does not arrive until a version that knows where it goes has been installed. Tools older
 than 0.1.8 are stricter still: they refuse a release that carries any file name they do not know,
 so on those the check stops instead of offering the newest release, and the window shows
@@ -87,9 +88,11 @@ prepared image is then the way forward.
 
 Release 0.1.9 taught the updater the Gamescope file names, and 0.2.0 is the
 release that places the corrected Gamescope build on a system that is
-already installed. Because of the limits above, tools on 0.1.8 or older
-cannot receive that build: they have to reach 0.1.9 first. Tools older than
-0.1.8 have to reach 0.1.8 before that, because those versions refuse a
+already installed. To place that build in one subsequent update, first reach
+0.1.9 using the sequence below. Tools on 0.1.8 can instead install the current
+release, restart and use the repair path described below to place the files
+they skipped. Tools older than 0.1.8 have to reach 0.1.8 before that, because
+those versions refuse a
 release that carries Gamescope at all. The update window only ever offers
 the newest release, so ask for the release you need by name from a terminal
 in Desktop Mode.
@@ -125,14 +128,13 @@ sudo steamos-nvidia-installer-update install v0.1.9 PASTE_THE_MANIFEST_SHA256
 Restart, then open **SteamOS NVIDIA Installer Update** and install the current
 release in the normal way.
 
-If the skip has already happened, that is, the tools were on 0.1.8, the
-current release was installed straight away and the Gamescope binary was
-left behind, the updater will now say the version is already installed and
-offer nothing. The tools themselves were replaced by that update, so they
-know the Gamescope file names now. Install 0.1.9 by name with the three
-commands above, restart, then install the current release in the normal way.
-The two releases carry an identical set of files, so nothing is lost by
-passing through 0.1.9 a second time.
+If the skip has already happened, restart into the updated tools and choose
+**Check for updates** again. The tools now know the Gamescope file names. If a
+newer release is available, the normal update can place those files. If the
+latest release is already installed but its files are missing or differ, tools
+from 0.2.1 onwards can offer to install that same release again. Choose
+**Continue**, wait for preparation to finish and restart. There is no need to
+return to 0.1.9 first. See [Repair an incomplete release](#repair-an-incomplete-release).
 
 To see which release your tools are on, rather than the release the image was
 built from:
@@ -149,6 +151,24 @@ several releases on a working system.
 Changes to the complete image builder are available in the source archive. They
 do not require rebuilding a working installation just to receive runtime fixes.
 
+## Repair an incomplete release
+
+From 0.2.1, **Check for updates** can offer to install the same version again
+when a file the signed release carries is missing, a symlink or not a regular
+file, or when a Gamescope or performance-overlay file cannot be read or has a
+different checksum.
+The window lists the affected files. This can happen after an older updater
+skipped file names it did not know; the message describes the difference and
+does not prove its cause.
+
+Choose **Continue** to prepare the signed release in the inactive OS slot, then
+restart. Repair uses the same space requirement, signature checks and rollback
+mechanism as an ordinary installer update. It does not reinstall SteamOS or
+replace your games and home data. It only repairs components carried by the
+release, so it cannot add receiver or NVENC binaries absent from that package.
+If these checks find no differences, the window reports that the tools are up
+to date.
+
 ## Where updates come from after 0.2.2
 
 Release 0.2.2 moves this project to a new repository. On your system the change is one
@@ -161,9 +181,9 @@ address into the system slot being prepared, and that address is in use once you
 into that slot.
 
 **From 0.1.9 onwards there is nothing to do by hand**, because the update window offers the
-newest release directly. Below 0.1.9 the stepping order in the section above applies first
-and this release does not shorten it: tools on 0.1.8 or older cannot receive the Gamescope
-build and have to reach 0.1.9, and tools older than 0.1.8 have to reach 0.1.8 before that.
+newest release directly. Below 0.1.9 follow the older-installer guidance above, including
+its repair path if files were skipped. Tools older than 0.1.8 must first install 0.1.8;
+that remains the required first step before they can accept the current package.
 
 Three things the update deliberately leaves alone:
 
