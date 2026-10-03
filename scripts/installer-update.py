@@ -20,7 +20,8 @@ BASE = Path('/usr/lib/steamos-nvidia')
 CONFIG = BASE / 'installer-update-source.json'
 VERSION_RE = re.compile(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?')
 MAX_BUNDLE = 32 * 1024 * 1024
-# Only project-owned files. Packages cannot replace arbitrary OS files or trust settings.
+# Only project-owned files. Packages cannot replace arbitrary OS files.
+# Source migration below preserves the existing signing key.
 # An optional group is all or nothing, so a half delivered artifact can never be installed:
 # a binary without the provenance that names its source, or without its license, is refused.
 OPTIONAL_GROUPS = {
@@ -65,11 +66,70 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def source():
-    info = CONFIG.lstat()
-    if CONFIG.is_symlink() or info.st_uid != 0 or info.st_mode & 0o022:
+# A signed transition release may retarget only the unchanged official source.
+# Custom repositories, keys and preview channels remain under their owner's control.
+LEGACY_SOURCE = {
+    'name': 'SteamOS NVIDIA Installer',
+    'release_api': 'https://api.github.com/repos/60plus/steamos-nvidia-installer/releases/',
+    'download_origin': 'https://github.com',
+    'allow_prerelease': False,
+    'public_key': ('-----BEGIN PUBLIC KEY-----\n'
+                   'MCowBQYDK2VwAyEAHPU95uEYmWGgHGrr29ruc04Xca/MVtfxdMvHVylxIB8=\n'
+                   '-----END PUBLIC KEY-----\n'),
+}
+RELEASE_API = 'https://api.github.com/repos/60plus/SteamOS_Nvidia_Installer/releases/'
+
+
+def migrate_source(root):
+    """Retarget the prepared image/slot, leaving the running system and key intact."""
+    # The image builder can reach its workspace through /home -> /var/home.
+    # apply_target separately proves inactive-slot identity for installed updates;
+    # this hook also runs while building an image, so it cannot require that device.
+    root = Path(root).resolve(strict=True)
+    if root == Path('/') or root.samefile('/'):
+        raise ValueError('Source migration requires a prepared image or inactive slot')
+    target = root / 'usr/lib/steamos-nvidia/installer-update-source.json'
+    if any(p.is_symlink() for p in (target, *target.parents) if p.is_relative_to(root)):
+        raise ValueError('Symlink in update source destination')
+    if not target.exists():
+        return False
+    info = target.stat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+        raise ValueError('Update source must be a root-owned, protected regular file')
+    cfg = json.loads(target.read_text())
+    if cfg != LEGACY_SOURCE:
+        return False
+    cfg['release_api'] = RELEASE_API
+    validate_source(cfg)
+    fd, name = tempfile.mkstemp(prefix='.installer-update-source-', dir=target.parent)
+    staged = Path(name)
+    try:
+        with os.fdopen(fd, 'w') as output:
+            os.fchmod(output.fileno(), 0o644)
+            output.write(json.dumps(cfg, indent=2) + '\n')
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(staged, target)
+        directory = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        staged.unlink(missing_ok=True)
+    source(target)
+    return True
+
+
+def source(config=None):
+    config = CONFIG if config is None else Path(config)
+    info = config.lstat()
+    if config.is_symlink() or info.st_uid != 0 or info.st_mode & 0o022:
         raise ValueError('Update source must be root-owned and not writable by other users')
-    cfg = json.loads(CONFIG.read_text())
+    return validate_source(json.loads(config.read_text()))
+
+
+def validate_source(cfg):
     if set(cfg) != {'name', 'release_api', 'download_origin', 'allow_prerelease', 'public_key'}:
         raise ValueError('Invalid update source configuration')
     if not re.fullmatch(r'https://[A-Za-z0-9.-]+(?::[0-9]+)?/[A-Za-z0-9_./-]+/releases/', cfg['release_api']):
@@ -405,6 +465,7 @@ def main():
     install = sub.add_parser('install'); install.add_argument('tag'); install.add_argument('manifest_sha256')
     sub.add_parser('rollback'); sub.add_parser('status'); sub.add_parser('request-mode')
     sub.add_parser('apply-target').add_argument('root')
+    sub.add_parser('migrate-source').add_argument('root')
     args = parser.parse_args()
     if args.command == 'check':
         with tempfile.TemporaryDirectory(prefix='installer-check-') as tmp:
@@ -421,6 +482,8 @@ def main():
         return
     if os.geteuid() != 0:
         raise ValueError('Run with sudo')
+    if args.command == 'migrate-source':
+        migrate_source(args.root); return
     if args.command == 'apply-target':
         apply_target(args.root); return
     d = driver()

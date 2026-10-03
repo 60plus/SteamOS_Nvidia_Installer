@@ -13,7 +13,7 @@ spec.loader.exec_module(updater)
 class PublicReleaseSource(unittest.TestCase):
     def test_public_source_is_github_stable_with_public_key_only(self):
         cfg = json.loads((ROOT / 'config/github-stable.json').read_text())
-        self.assertEqual(cfg['release_api'], 'https://api.github.com/repos/60plus/steamos-nvidia-installer/releases/')
+        self.assertEqual(cfg['release_api'], 'https://api.github.com/repos/60plus/SteamOS_Nvidia_Installer/releases/')
         self.assertEqual(cfg['download_origin'], 'https://github.com')
         self.assertIs(cfg['allow_prerelease'], False)
         self.assertTrue(cfg['public_key'].startswith('-----BEGIN PUBLIC KEY-----'))

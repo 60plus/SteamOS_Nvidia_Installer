@@ -755,6 +755,8 @@ DRIVER_SHORTCUT
 pc_install_installer_update() {
   local root="$1"
   [[ -f "$root/usr/lib/steamos-nvidia/installer-update.py" ]] || return 0
+  # Also reached by older updaters after they install this signed support script.
+  /usr/bin/python3 -I "$root/usr/lib/steamos-nvidia/installer-update.py" migrate-source "$root" || return 1
   mkdir -p "$root/usr/share/applications" "$root/etc/xdg/autostart"
   ln -sfn /usr/lib/steamos-nvidia/installer-update.py "$root/usr/bin/steamos-nvidia-installer-update"
   cat > "$root/usr/share/applications/steamos-installer-update.desktop" <<'UPDATE_DESKTOP'

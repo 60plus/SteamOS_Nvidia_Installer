@@ -11,5 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check shell syntax and update safeguards
         run: python3 -m unittest discover -s tests -v
+      - name: Check update source migration with root ownership
+        run: sudo python3 -B -m unittest discover -s tests -p test_source_migration.py -v
       - name: Check every shell script
         run: shellcheck -S warning $(git ls-files '*.sh') scripts/steamos-nvidia-diagnostics
