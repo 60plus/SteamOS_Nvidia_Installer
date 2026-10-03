@@ -20,7 +20,7 @@ chroot "$root" pacman -S --noconfirm gcc glibc linux-api-headers git meson ninja
   aom rav1e libdisplay-info libliftoff glm benchmark catch2 libcap hwdata libpng \
   lcms2 util-linux-libs xorg-xwayland sdl2-compat systemd-libs dbus libffi expat zlib
 # Tag 3.16.23.6, the tip of Valve's jupiter-3.8 branch and the package current
-# stable SteamOS ships. Both project patches apply to it unchanged.
+# stable SteamOS ships. All four patches in patches/gamescope apply to it unchanged.
 commit=154f435a2c0026510545b7b7524d104bed253cb3
 work=$(chroot "$root" mktemp -d /tmp/gamescope-build.XXXXXX)
 printf 'Build source directory: %s%s\n' "$root" "$work"

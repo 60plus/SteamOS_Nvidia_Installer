@@ -250,10 +250,92 @@ def read_bundle(path, manifest):
 
 
 def installed():
+    # Damaged or missing metadata recovers to 'unknown', which sorts below every release, so
+    # the newest one is offered and writes the whole payload again. That is the safe outcome
+    # here. Only the shapes this file can actually take are absorbed, so a real fault such as
+    # a permission problem still raises instead of being reported as 'no update'.
     path = BASE / 'integration-version.json'
-    if path.exists():
-        return json.loads(path.read_text())['version']
-    return 'unknown'
+    if not path.is_file():
+        return 'unknown'
+    try:
+        value = json.loads(path.read_text())['version']
+    except (ValueError, KeyError, TypeError):
+        return 'unknown'
+    return value if isinstance(value, str) else 'unknown'
+
+
+def version_key(value):
+    # Order two released versions without requiring a packaging library on the system.
+    # A prerelease sorts below the release it leads to, and anything unreadable, including
+    # the 'unknown' reported when no version file exists, sorts below everything.
+    # Identifiers are separated by dots only: the grammar allows a hyphen inside one, so
+    # splitting on hyphens too would order 0.2.1-rc-1 below 0.2.1-rc.2, which is backwards.
+    if not isinstance(value, str) or not VERSION_RE.fullmatch(value):
+        return ()
+    number, _, pre = value.partition('-')
+    numbers = tuple(int(part) for part in number.split('.'))
+    if not pre:
+        return (numbers, 1, ())
+    return (numbers, 0, tuple((0, int(p), '') if p.isdigit() else (1, 0, p) for p in pre.split('.')))
+
+
+def file_digest(path):
+    value = hashlib.sha256()
+    with path.open('rb') as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b''):
+            value.update(block)
+    return value.hexdigest()
+
+
+def payload_state(value, root=Path('/')):
+    """How the files this release carries compare with what is on the system.
+
+    Presence alone is not enough, and assuming it was would have shipped this as a fix for a
+    case it does not cover. A complete image already carries Gamescope at exactly these
+    destinations, so a tool too old to know those names clones the previous binary forward
+    and the destination exists holding the wrong bytes. Our own hardware record shows it:
+    after 0.1.8 to 0.1.9 the binary on disk was f0b1c19f while the bundle carried 911ffa8f.
+
+    Byte equality is checked for the optional groups. Those are the ones an older tool skips
+    and the only ones known to go stale this way, and nothing rewrites them after they are
+    placed. The remaining files are checked for presence only, until what happens to each of
+    them after installation has been audited, so a difference there is never called damage.
+
+    A destination that is not a plain file, or cannot be read, is reported separately rather
+    than counted as healthy: Path.exists() answers true for a directory.
+    """
+    state = {'missing': [], 'different': [], 'invalid': []}
+    for name in sorted(set(value['files']) & set(FILES)):
+        target = root / FILES[name][0]
+        if target.is_symlink() or (target.exists() and not target.is_file()):
+            state['invalid'].append(name)
+        elif not target.is_file():
+            state['missing'].append(name)
+        elif name in OPTIONAL_FILES:
+            try:
+                if file_digest(target) != value['files'][name]:
+                    state['different'].append(name)
+            except OSError:
+                state['invalid'].append(name)
+    return state
+
+
+EMPTY_PAYLOAD = {'missing': [], 'different': [], 'invalid': []}
+
+
+def damaged(state):
+    return sorted(state['missing'] + state['different'] + state['invalid'])
+
+
+def offer(value, current, state):
+    if version_key(value['version']) > version_key(current):
+        return 'install'
+    # The same version may be offered again to converge on the signed release. What is
+    # reported is the difference, never its cause: the image may legitimately have carried
+    # another build of the same version.
+    if value['version'] == current and damaged(state):
+        return 'repair'
+    return 'none'
 
 
 def verify_target_device(root, run):
@@ -299,6 +381,13 @@ def apply_target(root):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
         target.chmod(mode)
+    # Prove the prepared slot really carries the release before it is stamped with the
+    # version. The running system's own state is never evidence about this one, and the
+    # stamp must not be able to outrun the payload: that is how a machine came to report a
+    # version whose Gamescope binary it did not have.
+    state = payload_state(value, root)
+    if damaged(state):
+        raise ValueError('Prepared system is missing release files: ' + ', '.join(damaged(state)))
     (root / 'usr/lib/steamos-nvidia/integration-version.json').write_text(json.dumps(
         {'version': value['version'], 'manifest_sha256': item['manifest_sha256']}, indent=2) + '\n')
     subprocess.run(['/bin/bash', '-c',
@@ -320,7 +409,15 @@ def main():
     if args.command == 'check':
         with tempfile.TemporaryDirectory(prefix='installer-check-') as tmp:
             value = fetch(args.tag, Path(tmp))
-            print(json.dumps(dict(value, installed=installed())))
+            current = installed()
+            # Comparing the payload only means something against the release that is already
+            # installed. Against any other release every file it changes would be reported as
+            # different, which is the update itself rather than damage, and a machine ahead of
+            # its source would look broken. Measured on the test machine on 2026-09-29: on
+            # 0.2.1 against a source offering 0.2.0 it named the Gamescope files.
+            state = payload_state(value) if value['version'] == current else EMPTY_PAYLOAD
+            print(json.dumps(dict(value, installed=current, missing=damaged(state),
+                                  payload=state, offer=offer(value, current, state))))
         return
     if os.geteuid() != 0:
         raise ValueError('Run with sudo')
@@ -343,7 +440,12 @@ def main():
             value = fetch(args.tag, folder, bundle=True)
             if value['manifest_sha256'] != args.manifest_sha256:
                 raise ValueError('Release changed since confirmation; check again')
-            if value['version'] == installed():
+            # The same version may be installed again to converge on the signed release, but
+            # only when its own files do not match it here. The state is measured again now
+            # rather than trusted from the earlier check, which ran unprivileged and may be
+            # minutes old. An older tag is still accepted: the manual's recovery for tools
+            # that cannot reach the current release asks for one by name.
+            if value['version'] == installed() and not damaged(payload_state(value)):
                 raise ValueError('This integration version is already installed')
             check_steamos(d.manifest()['version'], value['steamos'], 'Release')
             read_bundle(folder / 'installer-bundle.tar', value)

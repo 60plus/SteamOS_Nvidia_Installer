@@ -1,0 +1,48 @@
+--- a/src/Backends/DRMBackend.cpp
++++ b/src/Backends/DRMBackend.cpp
+@@ -943,19 +943,26 @@
+ 	{ 4096, 2160, 0 },
+ };
+ 
++// Keep mode selection and the advertised list consistent. Zero fields in the
++// existing blocklist are wildcards, including refresh rate.
++static bool is_blocklisted_mode( const drmModeModeInfo *mode )
++{
++	for ( const auto &badMode : g_badModes )
++	{
++		if ( ( badMode.width   == 0 || mode->hdisplay == badMode.width ) &&
++		     ( badMode.height  == 0 || mode->vdisplay == badMode.height ) &&
++		     ( badMode.refresh == 0 || mode->vrefresh == badMode.refresh ) )
++			return true;
++	}
++	return false;
++}
++
+ static const drmModeModeInfo *find_mode( const drmModeConnector *connector, int hdisplay, int vdisplay, uint32_t vrefresh )
+ {
+ 	for (int i = 0; i < connector->count_modes; i++) {
+ 		const drmModeModeInfo *mode = &connector->modes[i];
+ 
+-		bool bad = false;
+-		for (const auto& badMode : g_badModes) {
+-			bad |= (badMode.width   == 0 || mode->hdisplay == badMode.width)
+-				&& (badMode.height  == 0 || mode->vdisplay == badMode.height)
+-				&& (badMode.refresh == 0 || mode->vrefresh == badMode.refresh);
+-		}
+-
+-		if (bad)
++		if ( is_blocklisted_mode( mode ) )
+ 			continue;
+ 
+ 		if (hdisplay != 0 && hdisplay != mode->hdisplay)
+@@ -2207,6 +2214,10 @@
+ 		for ( int i = 0; i < m_pConnector->count_modes; i++ )
+ 		{
+ 			drmModeModeInfo *pMode = &m_pConnector->modes[i];
++			// Do not advertise modes that find_mode rejects. Keep the raw KMS
++			// inventory and its ordering intact for the other connector paths.
++			if ( is_blocklisted_mode( pMode ) )
++				continue;
+ 			m_Mutable.BackendModes.emplace_back( BackendMode
+ 			{
+ 				.uWidth   = pMode->hdisplay,

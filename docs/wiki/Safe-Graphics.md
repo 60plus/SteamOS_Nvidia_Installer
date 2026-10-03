@@ -38,6 +38,14 @@ preference, and forces composition. The actual HDR/VRR state should be checked
 in the monitor's information screen. This is a troubleshooting option, not a fix
 for every black or green screen.
 
+One case does not need it. If the picture became unusable immediately after you
+raised the output resolution while Game Mode was running, restart Game Mode
+instead. The session keeps running and only the picture is affected, so nothing on
+screen can be operated and you may need a text console or another machine to reach
+the restart. The picture is correct again afterwards. This release does not fix that
+problem and does not establish where it belongs; it has its own entry in
+[Troubleshooting](Troubleshooting.md), with what was measured and what was not.
+
 ## Return to normal
 
 ```bash

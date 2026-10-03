@@ -61,30 +61,19 @@ body:
     - Not safe or practical to repeat
   validations:
     required: true
-- type: input
-  id: installer-release
+- type: textarea
+  id: versions
   attributes:
-    label: Installer release
-    description: Use the release number from your download, for example 0.1.0. For your own build, give the source commit. Write unknown if needed.
-  validations:
-    required: true
-- type: input
-  id: image-filename
-  attributes:
-    label: Image filename
-    description: The filename you downloaded or built.
-- type: input
-  id: steamos-version
-  attributes:
-    label: SteamOS version
-    description: The installed OS version, for example 3.8.16. Write unknown if it cannot boot.
-  validations:
-    required: true
-- type: input
-  id: nvidia-version
-  attributes:
-    label: NVIDIA driver version
-    description: Read it from the diagnostic report or nvidia-smi. Write unknown if unavailable.
+    label: Image and software versions
+    description: Include the installer version or source commit, image filename, SteamOS version
+      and NVIDIA driver. Write unknown if you cannot reach the system.
+    placeholder: 'Installer version / commit:
+
+      Image filename:
+
+      SteamOS version:
+
+      NVIDIA driver:'
   validations:
     required: true
 - type: textarea

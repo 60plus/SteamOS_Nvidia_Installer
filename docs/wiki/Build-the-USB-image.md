@@ -364,8 +364,29 @@ It must contain the system's `/etc`, `/usr` and package database, have working
 package repositories and DNS, and have `/proc`, `/dev` and `/sys` mounted inside it.
 Use a copy for building, never your running installation or your only recovery image.
 Do not substitute an ordinary Arch root: the resulting binaries need the target
-SteamOS library versions. Creating this build root is a separate prerequisite;
-the artifact scripts check it but do not create it.
+SteamOS library versions.
+
+`tools/prepare-build-root.sh` creates one from an unpacked recovery image. It is
+the same code the complete build uses, so the two cannot drift apart:
+
+```bash
+sudo bash tools/prepare-build-root.sh /path/to/recovery.img /path/to/new-workdir
+```
+
+It mounts the image read only, stacks a writable overlay on it, mounts `/proc`,
+`/dev` and `/sys`, gives the chroot a working resolver, initializes a private
+package keyring and syncs the databases. It prints the path of the prepared root.
+
+Preparing a work directory that already holds an upper layer keeps the packages
+installed last time, which turns a repeated artifact build from an hour into
+minutes. When you are finished with it:
+
+```bash
+sudo bash tools/prepare-build-root.sh --cleanup /path/to/new-workdir
+```
+
+That unmounts everything and detaches the loop device while keeping the upper
+layer for the next rebuild.
 
 From the repository root, replace the two absolute paths below. Keep each output
 directory new; artifact builders refuse to overwrite existing outputs.

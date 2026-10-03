@@ -29,7 +29,7 @@ probe 'xpadneo' modinfo hid_xpadneo
 probe 'Display connectors' sh -c 'for f in /sys/class/drm/card*-*/status; do [ -f "$f" ] && printf "%s: %s\n" "$f" "$(cat "$f")"; done'
 probe 'Display modes' sh -c 'for f in /sys/class/drm/card*-*/modes; do [ -f "$f" ] && { printf "%s:\n" "$f"; cat "$f"; }; done'
 probe 'Desktop display configuration' kscreen-doctor -o
-probe 'Gamescope version' gamescope --version
+probe 'Gamescope version in the distribution package' /usr/bin/gamescope --version
 probe 'Session type' printenv XDG_SESSION_TYPE
 probe 'Audio devices' wpctl status
 probe 'Bluetooth controllers' bluetoothctl list
@@ -62,5 +62,20 @@ probe 'Effective Bluetooth audio resume service' systemctl --user cat steamos-nv
 
 probe 'Last NVIDIA userspace dependency check (recorded during build or repair)' cat /usr/lib/steamos-nvidia/userspace-check.txt
 
-probe 'Experimental Gamescope selection' cat /usr/lib/steamos-nvidia/gamescope/status.txt
+probe 'Gamescope selection recorded for this system (not necessarily what is running)' cat /usr/lib/steamos-nvidia/gamescope/status.txt
+probe 'Gamescope build actually running' sh -c '
+  found=0
+  for pid in $(pgrep -x gamescope-wl 2>/dev/null) $(pgrep -x gamescope 2>/dev/null); do
+    exe=$(readlink "/proc/$pid/exe" 2>/dev/null) || continue
+    case "$exe" in
+      /usr/lib/steamos-nvidia/gamescope/bin/gamescope*) origin="this project build" ;;
+      /usr/bin/gamescope*) origin="distribution package" ;;
+      *) origin="neither of the known locations" ;;
+    esac
+    printf "pid %s: %s (%s)\n" "$pid" "$exe" "$origin"
+    found=1
+  done
+  [ "$found" = 1 ] || printf "No Gamescope process found, so nothing is in use right now. The line above records a selection, not a running build. Note the process is named gamescope-wl.\n"
+'
+probe 'Gamescope version the running session reported at startup' sh -c 'journalctl --user -u gamescope-session -b --no-pager 2>/dev/null | grep -m1 -i "gamescope version" || printf "No startup version line in this boot. Game Mode may not have started in this boot, or the journal is unavailable to this user.\n"'
 probe 'Game Mode executable search path' systemctl --user show gamescope-session.service -p Environment

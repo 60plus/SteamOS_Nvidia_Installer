@@ -17,8 +17,11 @@ df -h / /home /tmp
 ```
 
 The updater prepares the other SteamOS slot, then rebuilds the pinned NVIDIA
-driver and optional xpadneo for its kernel. Driver compilation adds time. Reboot
-when the update finishes, then check your display, audio, controller and a game.
+driver and optional xpadneo for its kernel. It also puts this project's other
+parts back into that slot, and if one of them cannot be restored the update is
+canceled and the working system stays selected. Driver compilation adds time.
+Reboot when the update finishes, then check your display, audio, controller and a
+game.
 
 OS updates keep the currently pinned driver version. A Steam client update is
 separate from a SteamOS update; check the OS version in system settings.

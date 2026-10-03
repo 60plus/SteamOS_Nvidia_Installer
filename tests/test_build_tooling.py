@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 BASH = os.environ.get("BASH_EXE") or shutil.which("bash")
 INSTALLER = (ROOT / "steamos-nvidia-installer.sh").read_text(encoding="utf-8")
 COMPLETE = (ROOT / "tools" / "build-complete.sh").read_text(encoding="utf-8")
+PREPARE = (ROOT / "tools" / "prepare-build-root.sh").read_text(encoding="utf-8")
+# The complete build sources the preparation library, so the build path is both files.
+BUILD_PATH = COMPLETE + PREPARE
 REPATCH = INSTALLER.split("<<'REPATCH'\n", 1)[1].split("\nREPATCH\n", 1)[0]
 HOST_INSTALLER = INSTALLER.replace(REPATCH, "")
 HELPER = re.compile(r"^set_chroot_resolver\(\) \{.*?^\}\n", re.S | re.M)
@@ -85,18 +88,18 @@ class TheChrootGetsAWorkingResolver(unittest.TestCase):
 
 class BothBuildScriptsUseTheSameHelper(unittest.TestCase):
     def test_the_two_copies_are_identical(self):
-        self.assertEqual(helper_source(INSTALLER), helper_source(COMPLETE),
+        self.assertEqual(helper_source(INSTALLER), helper_source(PREPARE),
                          "the two copies of set_chroot_resolver have drifted apart")
 
     def test_neither_build_path_copies_resolv_conf_blindly(self):
         for name, text in [("steamos-nvidia-installer.sh", HOST_INSTALLER),
-                           ("tools/build-complete.sh", COMPLETE)]:
+                           ("the build path", BUILD_PATH)]:
             with self.subTest(script=name):
                 self.assertNotIn("cp -L /etc/resolv.conf", text)
                 self.assertIn("set_chroot_resolver", text)
 
     def test_the_systemd_resolved_files_are_offered_as_fallbacks(self):
-        for text in (INSTALLER, COMPLETE):
+        for text in (INSTALLER, PREPARE):
             self.assertIn("/run/systemd/resolve/resolv.conf", text)
             self.assertIn("/run/systemd/resolve/stub-resolv.conf", text)
 
@@ -104,7 +107,7 @@ class BothBuildScriptsUseTheSameHelper(unittest.TestCase):
         # The stub listener can be switched off, so the file that names the real
         # servers has to come first.
         for name, text in [("steamos-nvidia-installer.sh", INSTALLER),
-                           ("tools/build-complete.sh", COMPLETE)]:
+                           ("tools/prepare-build-root.sh", PREPARE)]:
             with self.subTest(script=name):
                 call = text.split("set_chroot_resolver ", 1)[1].split("||", 1)[0]
                 self.assertLess(call.index("/run/systemd/resolve/resolv.conf"),
@@ -156,6 +159,38 @@ class AnInterruptedTransactionDoesNotBreakTheResume(unittest.TestCase):
                         INSTALLER.index("pacmandb/db.lck"))
 
 
+class ThePreparationOfTheBuildRootHasOneImplementation(unittest.TestCase):
+    """B9. Rebuilding one artifact used to mean reproducing this by hand."""
+
+    def test_the_complete_build_sources_the_library_rather_than_repeating_it(self):
+        self.assertIn('source "$repo/tools/prepare-build-root.sh"', COMPLETE)
+        for moved in ("losetup --read-only", "mount -t overlay overlay", "pacman-key --init"):
+            with self.subTest(step=moved):
+                self.assertNotIn(moved, COMPLETE, "the preparation has been copied back in")
+                self.assertIn(moved, PREPARE)
+
+    def test_the_library_can_also_be_run_on_its_own(self):
+        # An artifact rebuild needs it without running a whole image build.
+        self.assertIn('if [[ ${BASH_SOURCE[0]} == "${0}" ]]; then', PREPARE)
+        self.assertIn("--cleanup", PREPARE)
+
+    def test_the_mounts_it_makes_can_be_undone(self):
+        # rbind without make-rslave leaves /sys/fs/cgroup busy and the work
+        # directory unmountable, which is how the hand made version failed.
+        for step in ("mount --make-rslave", "umount -R"):
+            with self.subTest(step=step):
+                self.assertIn(step, PREPARE)
+
+    def test_the_loop_device_is_recorded_so_cleanup_can_detach_it(self):
+        self.assertIn("build_root_loop_file", PREPARE)
+        self.assertIn("losetup -d", PREPARE)
+
+    def test_the_manual_offers_the_tool_instead_of_a_prerequisite(self):
+        manual = (ROOT / "docs" / "wiki" / "Build-the-USB-image.md").read_text(encoding="utf-8")
+        self.assertIn("tools/prepare-build-root.sh", manual)
+        self.assertNotIn("Creating this build root is a separate prerequisite", manual)
+
+
 class BuildLeftoversStayOutOfGitStatus(unittest.TestCase):
     def test_the_host_probe_directory_is_ignored(self):
         probe = (ROOT / "tools" / "check-build-host.sh").read_text(encoding="utf-8")
@@ -188,12 +223,12 @@ class ValidatedBaselinesLiveInOneTable(unittest.TestCase):
         self.assertRegex(self.BASELINES["tested_driver"], r"^[0-9]+(\.[0-9]+)*(-[0-9]+)?$")
 
     def test_the_complete_builder_records_the_baseline_instead_of_demanding_one(self):
-        self.assertNotIn("Complete build currently requires SteamOS", COMPLETE)
-        self.assertNotIn(r"""grep -Eq '^VERSION_ID="?3\.8\.14"?$'""", COMPLETE)
-        self.assertIn("Recovery baseline: SteamOS", COMPLETE)
+        self.assertNotIn("Complete build currently requires SteamOS", BUILD_PATH)
+        self.assertNotIn(r"""grep -Eq '^VERSION_ID="?3\.8\.14"?$'""", BUILD_PATH)
+        self.assertIn("Recovery baseline: SteamOS", PREPARE)
         self.assertIn("tested_recovery", COMPLETE)
         # The identity check is the one that must stay unconditional.
-        self.assertIn("Not a SteamOS recovery image.", COMPLETE)
+        self.assertIn("Not a SteamOS recovery image.", PREPARE)
 
     def test_neither_builder_hardcodes_the_tested_driver(self):
         for name, text in [("tools/build-complete.sh", COMPLETE),

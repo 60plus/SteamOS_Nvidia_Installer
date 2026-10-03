@@ -216,11 +216,11 @@ class InstallerUpdate(unittest.TestCase):
         # where the rest is. The address must not come from the server.
         github=dict(release_api='https://api.github.com/repos/60plus/steamos-nvidia-installer/releases/',
                     download_origin='https://github.com')
-        gitea=dict(release_api='https://git.example.com/api/v1/repos/o/r/releases/',
+        custom=dict(release_api='https://git.example.com/api/v1/repos/o/r/releases/',
                    download_origin='https://git.example.com')
         self.assertEqual(m.release_page(github,'v0.1.7'),
                          'https://github.com/60plus/steamos-nvidia-installer/releases/tag/v0.1.7')
-        self.assertEqual(m.release_page(gitea,'v0.1.7'),
+        self.assertEqual(m.release_page(custom,'v0.1.7'),
                          'https://git.example.com/o/r/releases/tag/v0.1.7')
         hostile=dict(release_api='https://api.example.com/repos/o/r/releases/',
                      download_origin='https://downloads.example.com')
@@ -395,3 +395,197 @@ class TheBundleCanGainFilesWithoutStrandingAnyone(unittest.TestCase):
             missing['bundle_sha256'] = m.digest(path.read_bytes())
             with self.assertRaises(ValueError):
                 self.quietly(m.read_bundle, path, self.validated(missing))
+
+
+CLEAN = {'missing': [], 'different': [], 'invalid': []}
+
+
+class VersionsAreOrderedRatherThanCompared(unittest.TestCase):
+    """The update window asked only whether the two version strings were equal.
+
+    A machine ahead of its source was therefore offered a downgrade instead of being told it
+    is up to date, which happens on any machine that took a prerelease and on every machine
+    while the next release is being prepared.
+    """
+
+    def test_a_newer_release_is_offered(self):
+        self.assertEqual(m.offer(dict(version='0.2.1'), '0.2.0', CLEAN), 'install')
+
+    def test_a_machine_ahead_of_its_source_is_left_alone(self):
+        self.assertEqual(m.offer(dict(version='0.2.0'), '0.2.1', CLEAN), 'none')
+
+    def test_point_releases_are_not_compared_as_text(self):
+        # '0.1.10' sorts below '0.1.9' as text, which is the trap this replaces.
+        self.assertGreater(m.version_key('0.1.10'), m.version_key('0.1.9'))
+
+    def test_a_prerelease_sorts_below_the_release_it_leads_to(self):
+        self.assertLess(m.version_key('0.2.0-rc.1'), m.version_key('0.2.0'))
+        self.assertLess(m.version_key('0.2.0-rc.1'), m.version_key('0.2.0-rc.2'))
+
+    def test_a_hyphen_inside_an_identifier_is_not_a_separator(self):
+        # The accepted grammar allows one, and splitting on it as well put 0.2.1-rc-1 below
+        # 0.2.1-rc.2. It is a single identifier, compared as text against 'rc', so it sorts
+        # above it.
+        self.assertGreater(m.version_key('0.2.1-rc-1'), m.version_key('0.2.1-rc.2'))
+
+    def test_a_numeric_identifier_sorts_below_an_alphanumeric_one(self):
+        self.assertLess(m.version_key('0.2.0-1'), m.version_key('0.2.0-alpha'))
+
+    def test_an_unreadable_or_absent_version_sorts_below_everything(self):
+        for value in ('unknown', '', None, 3, 'not a version'):
+            with self.subTest(value=value):
+                self.assertEqual(m.version_key(value), ())
+        self.assertEqual(m.offer(dict(version='0.1.0'), 'unknown', CLEAN), 'install')
+
+
+class DamagedVersionMetadataRecoversToUnknown(unittest.TestCase):
+    """installed() read that file with no guard at all.
+
+    Malformed JSON, a missing key or a version that is not a string each raised, and the
+    caller turned that into a failed check rather than an offer. Recovering to 'unknown'
+    offers the newest release, which writes the whole payload again, so the safe answer and
+    the recovery agree.
+    """
+
+    def answer(self, text=None, as_directory=False):
+        folder = tempfile.TemporaryDirectory(prefix='installed-')
+        self.addCleanup(folder.cleanup)
+        base = Path(folder.name)
+        target = base / 'integration-version.json'
+        if as_directory:
+            target.mkdir()
+        elif text is not None:
+            target.write_text(text)
+        with patch.object(m, 'BASE', base):
+            return m.installed()
+
+    def test_a_good_file_is_read(self):
+        self.assertEqual(self.answer(json.dumps({'version': '0.2.0'})), '0.2.0')
+
+    def test_absent_malformed_and_wrongly_typed_all_answer_unknown(self):
+        for case, text in (('absent', None), ('not json', '{'), ('no key', '{}'),
+                           ('a list', '[]'), ('a number', json.dumps({'version': 3})),
+                           ('null', json.dumps({'version': None}))):
+            with self.subTest(case=case):
+                self.assertEqual(self.answer(text), 'unknown')
+
+    def test_a_directory_in_its_place_answers_unknown(self):
+        self.assertEqual(self.answer(as_directory=True), 'unknown')
+
+
+class AReleaseCanBeInstalledAgainToConvergeOnIt(unittest.TestCase):
+    """Presence is not enough, which is the correction the review made to the first attempt.
+
+    A machine on tools 0.1.8 that installed a release carrying Gamescope had the three files
+    skipped, because an installed tool writes only the names it was built knowing. It then
+    reported the new version and the updater offered nothing. Looking for files that are
+    absent misses the documented form of this fault: a complete image already carries
+    Gamescope at exactly these destinations, so the old binary is cloned forward and the
+    destination exists holding the wrong bytes.
+
+    The invariant: updating the integration tools must also replace an older
+    optional Gamescope artifact. Checking only the helper version can leave the
+    compositor unchanged, and the machine then reports itself up to date without
+    the correction.
+    """
+
+    GROUP = 'gamescope'
+
+    def tree(self, missing=(), stale=(), directories=()):
+        folder = tempfile.TemporaryDirectory(prefix='payload-')
+        self.addCleanup(folder.cleanup)
+        root = Path(folder.name)
+        for name, (rel, _) in m.FILES.items():
+            if name in missing:
+                continue
+            target = root / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if name in directories:
+                target.mkdir()
+            else:
+                target.write_bytes(b'previous build' if name in stale else b'test')
+        return root
+
+    def test_a_complete_system_matches_the_release(self):
+        state = m.payload_state(manifest(), self.tree())
+        self.assertEqual(m.damaged(state), [])
+        self.assertEqual(m.offer(manifest(), manifest()['version'], state), 'none')
+
+    def test_an_existing_older_binary_is_not_healthy(self):
+        # The blocking counterexample. Every destination exists, the version matches, and the
+        # bytes are the previous build's.
+        root = self.tree(stale=m.OPTIONAL_GROUPS[self.GROUP])
+        state = m.payload_state(manifest(), root)
+        self.assertEqual(state['missing'], [])
+        self.assertEqual(state['different'], sorted(m.OPTIONAL_GROUPS[self.GROUP]))
+        self.assertEqual(m.offer(manifest(), manifest()['version'], state), 'repair')
+
+    def test_the_recorded_manifest_hash_does_not_suppress_it(self):
+        # An old tool authenticates the whole manifest and records its hash while deliberately
+        # skipping names it does not know, so that value is a receipt for the transaction and
+        # not evidence that every member was written. Nothing in the decision reads it.
+        source = (Path(__file__).parents[1] / 'scripts/installer-update.py').read_text()
+        decision = source[source.index('def payload_state'):source.index('def verify_target_device')]
+        self.assertNotIn('manifest_sha256', decision)
+
+    def test_a_whole_absent_group_and_a_single_absent_member_both_count(self):
+        group = m.OPTIONAL_GROUPS[self.GROUP]
+        whole = m.payload_state(manifest(), self.tree(missing=group))
+        self.assertEqual(whole['missing'], sorted(group))
+        one = m.payload_state(manifest(), self.tree(missing={'gamescope'}))
+        self.assertEqual(one['missing'], ['gamescope'])
+        self.assertEqual(m.offer(manifest(), manifest()['version'], one), 'repair')
+
+    def test_a_release_that_does_not_carry_the_group_asks_for_nothing(self):
+        # A base only image legitimately has no Gamescope. A release that does not carry it
+        # has nothing to put there, so there is nothing to converge on.
+        value = manifest()
+        for name in m.OPTIONAL_GROUPS[self.GROUP]:
+            del value['files'][name]
+        state = m.payload_state(value, self.tree(missing=m.OPTIONAL_GROUPS[self.GROUP]))
+        self.assertEqual(m.damaged(state), [])
+        self.assertEqual(m.offer(value, value['version'], state), 'none')
+
+    def test_a_base_only_tree_converges_on_a_release_that_carries_it(self):
+        # The other half of the same case, and it is deliberate: nothing persists a choice
+        # that this machine must stay without Gamescope, and every ordinary update already
+        # delivers every file the release carries.
+        state = m.payload_state(manifest(), self.tree(missing=m.OPTIONAL_GROUPS[self.GROUP]))
+        self.assertEqual(m.offer(manifest(), manifest()['version'], state), 'repair')
+
+    def test_a_name_this_version_cannot_place_is_never_reported(self):
+        # The mirror of the rule that lets a release carry names a later version knows.
+        # Reporting one would ask for a repair that could never put it anywhere.
+        value = manifest()
+        value['files']['something-a-later-version-knows'] = '0' * 64
+        self.assertEqual(m.damaged(m.payload_state(value, self.tree())), [])
+
+    def test_a_directory_at_a_destination_is_not_a_healthy_file(self):
+        # Path.exists() answers true for a directory, so presence alone called this healthy.
+        state = m.payload_state(manifest(), self.tree(directories={'gamescope'}))
+        self.assertEqual(state['invalid'], ['gamescope'])
+        self.assertEqual(state['missing'], [])
+        self.assertEqual(m.offer(manifest(), manifest()['version'], state), 'repair')
+
+    def test_the_refusal_is_measured_again_under_the_lock(self):
+        source = (Path(__file__).parents[1] / 'scripts/installer-update.py').read_text()
+        self.assertIn("if value['version'] == installed() and not damaged(payload_state(value)):", source)
+        self.assertIn("raise ValueError('This integration version is already installed')", source)
+
+    def test_the_check_publishes_the_state_and_the_decision(self):
+        source = (Path(__file__).parents[1] / 'scripts/installer-update.py').read_text()
+        self.assertIn('payload=state', source)
+        self.assertIn('offer=offer(value, current, state)', source)
+
+    def test_the_payload_is_only_reported_against_the_installed_version(self):
+        # Measured on the test machine on 2026-09-29. It had 0.2.1 and its source offered
+        # 0.2.0, so comparing the payload against that older release named the Gamescope
+        # files as different. They are not damaged: the machine is ahead. The check now
+        # reports the comparison only when it means something.
+        source = (Path(__file__).parents[1] / 'scripts/installer-update.py').read_text()
+        self.assertIn("state = payload_state(value) if value['version'] == current else EMPTY_PAYLOAD", source)
+        self.assertEqual(m.EMPTY_PAYLOAD, {'missing': [], 'different': [], 'invalid': []})
+        self.assertEqual(m.damaged(m.EMPTY_PAYLOAD), [])
+        # And the decision is unaffected, because an unequal version never reads the payload.
+        self.assertEqual(m.offer(dict(version='0.2.0'), '0.2.1', m.EMPTY_PAYLOAD), 'none')
+        self.assertEqual(m.offer(dict(version='0.2.2'), '0.2.1', m.EMPTY_PAYLOAD), 'install')

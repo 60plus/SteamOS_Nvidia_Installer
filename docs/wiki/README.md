@@ -24,7 +24,6 @@ Start with one display connected directly to the NVIDIA card. Keep your installe
 USB after installation so you can reach the recovery desktop if the installed
 system cannot start.
 
-This manual describes the code on the branch you are reading. Fresh installation
-erases the selected disk. The Upgrade option is intended for an existing SteamOS
+Fresh installation erases the selected disk. The Upgrade option is intended for an existing SteamOS
 layout and does not replace a backup.
 

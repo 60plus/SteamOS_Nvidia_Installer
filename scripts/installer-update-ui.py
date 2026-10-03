@@ -96,10 +96,26 @@ def main():
         if result.returncode:
             raise ValueError(result.stderr.strip() or 'Could not check for updates')
         release = json.loads(result.stdout)
-        if release['installed'] == release['version']:
-            dialog('--info', 'Installer tools are up to date: ' + release['version'])
+        # The check decides what to offer, because it is the side that knows how versions
+        # order and which files are on disk. A check too old to say falls back to equality.
+        decision = release.get('offer') or ('none' if release['installed'] == release['version'] else 'install')
+        if decision == 'none':
+            dialog('--info', 'Installer tools are up to date: ' + release['installed'])
             return 0
-        text = ('Installed tools: ' + release['installed'] + '\nAvailable: ' + release['version'] +
+        if decision == 'repair':
+            # Say what differs, never why. A file can be absent or hold other bytes for more
+            # than one reason, including an image that legitimately carried another build of
+            # the same version, so claiming a cause here would sometimes be wrong.
+            head = ('Installed tools: ' + release['installed'] +
+                    '\nThis release is already installed, but these files it carries do not match it '
+                    'on this system:\n  ' +
+                    '\n  '.join(release.get('missing') or []) +
+                    '\n\nInstalling this release again puts the signed copies in place. One way this '
+                    'happens is an update applied by tools too old to know those names, which skip '
+                    'them and leave the system reporting itself up to date.')
+        else:
+            head = 'Installed tools: ' + release['installed'] + '\nAvailable: ' + release['version']
+        text = (head +
                 '\nSource: ' + release['source'] +
                 ('\nRelease page: ' + release['page'] if release.get('page') else '') +
                 '\n\n' + summarise(release['notes']) +

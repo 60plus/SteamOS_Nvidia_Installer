@@ -16,7 +16,7 @@ with a controller or switch to Desktop Mode when you need a full Linux desktop.
 - **Change drivers from the desktop:** choose a compatible NVIDIA release and prepare it without rebuilding your USB installer.
 - **Updates from Steam:** rebuilds the selected NVIDIA driver for the updated OS before completing repair.
 - **A comfortable first start:** new display profiles start with HDR off. Turn it on later for a compatible display; your choice is preserved.
-- **Menus that stay readable:** on NVIDIA, Game Mode menus over a running game could break into displaced fragments and colored bands. This build refuses the presentation route that causes it, so the performance overlay, HDR and image scaling can all stay as you want them.
+- **Menus that stay readable:** on NVIDIA, Game Mode menus over a running game could break into displaced fragments and colored bands. This build refuses the presentation route that causes it, so the performance overlay, HDR and image scaling can all stay as you want them. The correction comes from this project's own Gamescope build, which is selected only on SteamOS 3.8 systems that ship the package it was compiled against, so read [checking the Gamescope build](https://github.com/60plus/steamos-nvidia-installer/wiki/Updates-and-recovery#check-the-gamescope-build-after-an-update) before changing OS channels.
 - **Controller friendly:** uses SteamOS controller support by default, with optional xpadneo for controllers that need it.
 - **Install or refresh:** desktop shortcuts offer a fresh installation or an OS reinstall that keeps the existing SteamOS data partition.
 - **Help when you need it:** optional Safe Graphics and local diagnostic reports make troubleshooting easier.

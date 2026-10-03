@@ -224,12 +224,18 @@ installing an unusable overlay.
 
 ## Capture-color correction
 
-An image built with all components in the [build guide](Build-the-USB-image.md#complete-build) includes this separately maintained backport.
-Outgoing Remote Play has passed hardware testing; screenshot formats still need
-separate acceptance. Custom builders supply the artifact with `--gamescope-dir`.
+An image built with all components in the [build guide](Build-the-USB-image.md#complete-build)
+includes a separately maintained Gamescope build, based on version 3.16.23.6. It carries four
+corrections: two capture fixes adapted from upstream work, a correction this project made for the
+corrupted Game Mode menus described below, and a filter that stops Steam being offered display
+modes Gamescope will reject. The two capture fixes are present in upstream Gamescope 3.16.30. The
+menu correction and the advertised mode filter are not in that version, so a system using it instead
+of this build does not have them. The version checked is
+[upstream Gamescope 3.16.30](https://github.com/ValveSoftware/gamescope/releases/tag/3.16.30). Outgoing Remote Play has passed hardware
+testing; screenshot formats still need separate acceptance. Custom builders supply the artifact
+with `--gamescope-dir`.
 
-A separate Gamescope build backports an upstream NVIDIA capture correction to
-version 3.16.23.6. It checks whether the Vulkan device supports the 10-bit RGB
+The capture correction is backported to Gamescope version 3.16.23.6. It checks whether the Vulkan device supports the 10-bit RGB
 format required for capture. When that format is unavailable, it uses the
 supported BGR layout and decodes screenshot channels in the matching order.
 The shared capture pool also requests sampled-image usage: the RGB-to-NV12
