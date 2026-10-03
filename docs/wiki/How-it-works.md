@@ -169,6 +169,26 @@ than rebuilding it unnecessarily. New helpers and policies are applied to the
 inactive root. The old image build metadata is preserved; a separate
 `integration-version.json` records the current tools version.
 
+### Repository transition in 0.2.2
+
+The prepared 0.2.2 transition uses the existing signed archive contract. After the
+installed updater writes the new payload to the prepared root, it sources that
+root's `pc-support.sh`. Its `pc_install_installer_update` hook calls the new
+updater's `migrate-source` command before addon hashes are recorded.
+
+Migration changes only `release_api`, and only when all five configuration fields
+match the official source shipped by earlier releases. The verification key and
+custom configurations are preserved. The destination root is resolved before
+checking paths, so a build workspace reached through a symlink is supported while
+symlinks inside the prepared root are refused. The configuration is validated,
+written atomically, and read back before `pc_write_addon_manifest` records it.
+
+An installed update already verifies the inactive device before this hook runs.
+The image builder uses the same hook for a mounted recovery image. The running
+system's configuration is not rewritten by the update transaction; reboot selects
+the prepared slot and its new source. These paths have automated coverage, while
+hardware acceptance of the repository transition is still pending.
+
 This mechanism cannot deliver every possible change to image building or disk
 layout. Such changes may still need a new installer. See
 [Installer updates](Installer-Updates.md) for the user workflow.
