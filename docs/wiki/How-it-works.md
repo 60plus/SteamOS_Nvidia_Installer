@@ -144,7 +144,11 @@ server does not cause a switch to another source.
 The source configuration contains an API URL, download origin, channel policy
 and public verification key. The private signing key is not included. The release
 packer creates a bundle, a manifest and an Ed25519 signature. The manifest names
-the integration version, supported SteamOS versions and SHA-256 file hashes.
+the integration version, tested SteamOS versions and SHA-256 file hashes.
+From updater 0.1.6, the oldest listed SteamOS version is the minimum accepted;
+unlisted versions at or above it pass the version check with a warning. Older
+updaters require an exact version match. Preparation runs driver and addon checks,
+but those checks do not establish full runtime compatibility with an untested OS.
 
 The updater verifies the signature, archive checksum and file hashes, rejects
 unexpected paths and links, and limits download size. It accepts a fixed list of
@@ -182,8 +186,10 @@ installed updater writes the new payload to the prepared root, it sources that
 root's `pc-support.sh`. Its `pc_install_installer_update` hook calls the new
 updater's `migrate-source` command before addon hashes are recorded.
 
-Migration changes only `release_api`, and only when all five configuration fields
-match the official source shipped by earlier releases. The verification key and
+Migration changes only `release_api`, from the old repository to
+`60plus/SteamOS_Nvidia_Installer`, and only when the complete configuration equals
+the previous official source, including all five fields and no extra fields.
+Formatting and key order do not affect the comparison. The verification key and
 custom configurations are preserved. The destination root is resolved before
 checking paths, so a build workspace reached through a symlink is supported while
 symlinks inside the prepared root are refused. The configuration is validated,

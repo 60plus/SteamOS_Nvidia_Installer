@@ -29,11 +29,11 @@ Preparation normally needs about 17 GiB free on /home. It replaces the inactive
 OS slot, including any earlier system stored there. The running slot is retained.
 An update does not require writing another USB installer.
 
-A later SteamOS update does not undo an installer tools update. The version you
-installed with this tool stays installed, the pinned NVIDIA driver is kept, and
-the configured release source and its verification key come through with them,
-so the next check still works. You do not need to run this tool again after an
-OS update.
+The project's OS update repair hook copies the installed tools, update-source
+configuration and verification key into the updated system and rebuilds the
+pinned NVIDIA driver for its kernel. Preserving these components depends on
+SteamOS continuing to run that hook. In the tested update cycle below, the tools
+did not need to be reinstalled.
 
 That was measured on one PC, an Intel Core i5-10400F with a GeForce RTX 5060.
 Tools 0.1.2 were installed with this tool on SteamOS 3.8.16, the PC was then
@@ -45,10 +45,14 @@ cover other graphics cards or later SteamOS releases. If the installed tools
 version drops after an OS update, or the shortcut disappears, that is worth
 reporting, with the diagnostic report described at the end of this page.
 
-Public images use this repository's GitHub Releases and the bundled public
-verification key. The updater accepts signed release packages from that
-source. Stable sources reject prereleases. An unavailable server does not cause the updater
-to switch to another source.
+Images built from 0.2.2 with the bundled official update configuration use
+`60plus/SteamOS_Nvidia_Installer` on GitHub. Older installations using the previous
+official configuration still check `60plus/steamos-nvidia-installer` until the
+source transition is installed and the system restarts. See
+[Where updates come from after 0.2.2](#where-updates-come-from-after-022).
+The updater verifies releases with the configured public key. The official
+stable channel rejects prereleases. An unavailable server does not cause the
+updater to switch to another source.
 
 The updater only delivers components included in its signed package. From
 release 0.1.9 that package can carry Gamescope, so a corrected Gamescope build
@@ -62,26 +66,35 @@ before you update.
 
 ## Updating from an older installer
 
-Release packages carry the complete current set of installer tools, so from 0.1.9 onwards the
-update window always offers the newest release and you do not have to install the releases in
-between. Older tools need extra steps; the sequence below avoids skipped files.
+For the current 0.2.2 release, installed tools 0.1.9 or newer can update directly
+through the update window, subject to the SteamOS checks below. Older tools need
+extra steps; the sequence below avoids skipped files. Future changes to the
+package format or file list may need a different sequence, described in that
+release's instructions.
 Two limits apply. An installed version writes only the files it was built knowing about,
 so a file that was added to the list in a later
 release does not arrive until a version that knows where it goes has been installed. Tools older
 than 0.1.8 are stricter still: they refuse a release that carries any file name they do not know,
-so on those the check stops instead of offering the newest release, and the window shows
-`Installer update failed: Release has missing or unexpected files`. Nothing is written to the
-other slot. That message means the age limit, not a damaged download or a bad release, and an
-older release has to be asked for by name.
+so on those the check stops instead of offering the current release, and the window shows
+`Installer update failed: Release has missing or unexpected files`. This refusal happens
+before preparation writes to the other slot. For this older-updater case, request the
+intermediate release by name as described below.
+
+The same message can also mean that a signed manifest lacks required files or
+contains only part of a required component group. The message alone does not
+identify the cause. If your installed tools are 0.1.8 or newer, or the documented
+intermediate release is also refused, save the exact error and report the
+installed and requested versions rather than assuming an age limit.
 
 The signed package names the SteamOS versions the release was tested on. A
 SteamOS older than the oldest version named is refused, so finish updating
-SteamOS first. Any SteamOS from that version upwards is accepted, with a warning
-when it is not one of the versions named, and the update then stops with an
-error rather than continuing quietly if any part of the integration does not fit
-that system.
+SteamOS first. A version at or above that minimum passes the version check, with
+a warning when it is not listed. Preparation also checks the installed driver
+and project components; a failed check stops the transaction. Passing these
+checks does not establish that every feature works on an untested SteamOS
+release. After restarting, check the features you use and report any regression.
 
-Tools from 0.1.6 onwards behave that way. Older ones are stricter here too: they
+Tools from 0.1.6 onwards apply that minimum-version rule. Older ones are stricter here too: they
 accept only a SteamOS version the release names exactly and refuse every other
 one, so on those an update can stop even though a newer release exists, and a
 prepared image is then the way forward.
@@ -171,36 +184,40 @@ to date.
 
 ## Where updates come from after 0.2.2
 
-Release 0.2.2 moves this project to a new repository. On your system the change is one
-file, `/usr/lib/steamos-nvidia/installer-update-source.json`, which holds the address the
-update tool asks for releases.
+Release 0.2.2 moves the official update channel from
+`60plus/steamos-nvidia-installer` to `60plus/SteamOS_Nvidia_Installer`.
+The source address is stored in
+`/usr/lib/steamos-nvidia/installer-update-source.json`.
 
 0.2.2 is available on the old repository as well, so an installation already
 updating from there finds the release where it already looks. Applying it writes the new
 address into the system slot being prepared, and that address is in use once you restart
 into that slot.
 
-**From 0.1.9 onwards there is nothing to do by hand**, because the update window offers the
-newest release directly. Below 0.1.9 follow the older-installer guidance above, including
+**With installed tools 0.1.9 or newer, install 0.2.2 through the update window and
+restart. No manual source edit is needed.** Below 0.1.9 follow the older-installer guidance above, including
 its repair path if files were skipped. Tools older than 0.1.8 must first install 0.1.8;
 that remains the required first step before they can accept the current package.
 
 Three things the update deliberately leaves alone:
 
 * **The verification key.** Releases are signed with the same key before and after the
-  move. An installation that never takes 0.2.2 keeps checking for updates normally.
+  move. There is no new key to download or accept.
 * **Any configuration that is not this project's own public channel.** The address is
-  amended only where all five fields still match the configuration this project shipped,
-  the key included. An image built with `--installer-update-source` pointing at a custom
-  configuration, or one where any of those five fields was changed, is left exactly as it
-  is. Only formatting is ignored, so a reindented copy of the project's own configuration
-  still migrates.
+  changed only when the complete configuration matches the previous official one,
+  including all five fields and no extra fields. Custom configurations are preserved.
+  Formatting and key order do not affect this comparison, so a reindented copy of
+  the previous official configuration still migrates.
 * **The slot you can return to.** Every system slot carries its own copy of that file, so
-  returning to the previous system also returns the previous address. That slot asks the
-  old repository, where 0.2.2 remains available, so it can be applied again.
+  returning to a system from before this transition also returns the old repository
+  address. Release 0.2.2 remains available there, so it can be applied again.
+  A later system update can replace that slot; see
+  [Return to the previous system](#return-to-the-previous-system).
 
-The old repository stays in place and keeps serving the releases already published. No
-installation loses its update channel because of the move.
+The old repository retains 0.2.2 and earlier releases. An installation still using
+that source can obtain the transition release there, following the version-specific
+steps above. Later releases will be published in the new repository; staying on
+the old source does not make the updater discover those releases automatically.
 
 Hardware checks on one system confirmed the source transition, standard rollback and
 discovery of the published 0.2.2 update from the old repository. The installation test used
@@ -253,12 +270,16 @@ A signature or checksum failure stops installation. Check the configured source
 and contact the maintainer rather than disabling verification. An unsupported
 SteamOS version requires a compatible release.
 
-These refusals happen while the release is being checked, before the other OS
-slot is touched, so the running system is unchanged and there is nothing to undo.
-The same is true of a release refused because its file list does not match what
-the installed tools expect, which is reported as
-`Release has missing or unexpected files`, and of a SteamOS older than the oldest
-version the release names. Deal with the cause and check again.
+A refusal during the initial release checks happens before preparation writes
+to the other OS slot. This includes a refused signature, file list or SteamOS
+version. `Release has missing or unexpected files` describes a file-list mismatch;
+see [Updating from an older installer](#updating-from-an-older-installer) for the
+known older-tool case and other possible causes.
+
+Checks also run during preparation. If a later check fails, the inactive slot
+may already have been changed. Keep using the running system and inspect the
+transaction status before retrying; do not assume the inactive slot is ready to
+boot just because the error mentions a signature or checksum.
 
 A changed release after confirmation requires a new check. A pending OS update,
 selected slot or another update operation must finish before starting this one.
