@@ -214,15 +214,19 @@ Three things the update deliberately leaves alone:
   A later system update can replace that slot; see
   [Return to the previous system](#return-to-the-previous-system).
 
-The old repository retains 0.2.2 and earlier releases. An installation still using
-that source can obtain the transition release there, following the version-specific
-steps above. Later releases will be published in the new repository; staying on
-the old source does not make the updater discover those releases automatically.
+The old repository is archived and read-only. It retains 0.2.2 and earlier
+releases, so installations still using that source can obtain the transition
+release there, following the version-specific steps above. Further development
+and releases belong to the new repository. Staying on the old source does not
+make the updater discover releases in the new repository automatically.
 
-Hardware checks on one system confirmed the source transition, standard rollback and
-discovery of the published 0.2.2 update from the old repository. The installation test used
-local delivery of the signed package through the existing A/B transaction. A complete
-installation from the public release through the desktop window remains unverified.
+On one tested system, the user confirmed installing the public 0.2.2 release
+through the desktop update window. After restarting, checks confirmed version
+0.2.2, the new repository address, an unchanged verification key and all 21
+installed payload files matching the signed release manifest. The previous slot
+still contained 0.2.1 with the old source address; returning to the previous system
+had also passed an earlier test. This verifies the update path on that system,
+not compatibility with every hardware or SteamOS combination.
 
 ## Return to the previous system
 

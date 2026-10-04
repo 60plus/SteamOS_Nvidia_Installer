@@ -198,10 +198,21 @@ written atomically, and read back before `pc_write_addon_manifest` records it.
 An installed update already verifies the inactive device before this hook runs.
 The image builder uses the same hook for a mounted recovery image. The running
 system's configuration is not rewritten by the update transaction; reboot selects
-the prepared slot and its new source. Automated tests cover these paths. Hardware checks
-on one system confirmed the source transition and standard rollback using local delivery
-of the signed package, then discovery of the published update. A complete installation
-from the public release through the desktop window remains unverified.
+the prepared slot and its new source. Automated tests cover these paths.
+
+A subsequent hardware test covered installation of the published 0.2.2 release.
+The user reported using the desktop update window, and the update log recorded
+a matching installation command. After reboot, all 21 installed payload files
+matched the signed release manifest, the new source was active and the
+verification key was unchanged. The previous slot retained 0.2.1 and its old
+source configuration; standard rollback had passed an earlier test.
+
+The running system's old configuration and the updater's source-selection code
+indicate that this installation downloaded from the old repository. The download
+URL was not logged, so that origin is an inference rather than a recorded URL.
+The new repository was confirmed as the source used for update checks after
+reboot. These results cover one system and do not establish compatibility with
+other hardware or SteamOS releases.
 
 This mechanism cannot deliver every possible change to image building or disk
 layout. Such changes may still need a new installer. See
