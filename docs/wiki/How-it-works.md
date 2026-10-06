@@ -280,6 +280,15 @@ of this build does not have them. The version checked is
 testing; screenshot formats still need separate acceptance. Custom builders supply the artifact
 with `--gamescope-dir`.
 
+**The Gamescope pin is temporary and reviewed manually.** With each SteamOS
+update, we check what Valve has fixed in upstream Gamescope. When we adopt
+upstream code that contains a correction, we remove the corresponding patch
+from this project's patch set. We move the pin to a newer Gamescope only after
+testing shows it is an improvement for supported NVIDIA systems. These are
+manual maintenance decisions, not automatic changes made by the updater. Once
+the Gamescope shipped by SteamOS works without our corrections, we will retire
+the separate build and use Valve's compositor.
+
 The capture correction is backported to Gamescope version 3.16.23.6. It checks whether the Vulkan device supports the 10-bit RGB
 format required for capture. When that format is unavailable, it uses the
 supported BGR layout and decodes screenshot channels in the matching order.

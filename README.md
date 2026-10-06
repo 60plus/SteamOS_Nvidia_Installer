@@ -32,6 +32,14 @@ with a controller or switch to Desktop Mode when you need a full Linux desktop.
 - **Installer tools stay current:** configured images include a desktop updater for signed project fixes.
 - **Built on your machine:** the original recovery image is kept intact. Choose a driver version and produce your own USB image.
 
+## The aim is to return to plain SteamOS
+
+This project addresses gaps in SteamOS support for NVIDIA. As Valve fixes those
+gaps upstream, we review and remove the corresponding project patches. The aim
+is to keep an installation as close to plain SteamOS as possible and reduce our
+changes over time. Once SteamOS provides full NVIDIA support, this project will
+have fulfilled its purpose.
+
 ## What you need
 
 An NVIDIA RTX desktop PC, UEFI with Secure Boot disabled, a USB drive of at least
