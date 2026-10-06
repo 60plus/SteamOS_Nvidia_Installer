@@ -137,8 +137,8 @@ diagnostics command, the installation helper, the service files, and whichever
 optional components the image carries, such as the notification fix, the
 performance overlay, this project's Gamescope build, Remote Play, NVENC, the
 driver tools and the desktop updater. Generated status files and the
-version-dependent choice of session files are left out on purpose, because a
-system update can change them. The checks also confirm the required command and
+chosen session files are left out on purpose, because a system update can
+change them. The checks also confirm the required command and
 activation links. A failed check identifies an installation problem; passing
 checks do not prove that a display or audio device works. User HDR choices and
 the optional Safe Graphics setting are not overwritten.
@@ -169,9 +169,10 @@ was pointed at this project's build. It also shows
 in a service override.
 
 The choice is made when the system is installed or repaired. It returns to `stock` on purpose when
-SteamOS ships a different Gamescope package than the one this project's build was made from, when
-the SteamOS release is outside the 3.8 line, or when SteamOS changes the way its session starts
-Gamescope, so `stock` is not by itself an installation fault. On an image that carries no
+this project's build does not accept the flags the Game Mode session passes it, or when SteamOS
+changes the way that session starts Gamescope, so `stock` is not by itself an installation fault.
+Neither the Gamescope package the system has installed nor the SteamOS release decides it; the
+package shown in brackets is recorded for the report only. On an image that carries no
 Gamescope build of this project the file is absent and the section reports that it could not be
 read.
 

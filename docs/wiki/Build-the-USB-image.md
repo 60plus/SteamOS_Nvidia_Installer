@@ -269,15 +269,17 @@ which can change after the image is built.
 Keep a working stable installer and use a separate test disk. Neither option
 enables main or establishes compatibility with every future experimental build.
 
-A Preview installation runs SteamOS's own Gamescope rather than this project's build. That is
-deliberate. The build is matched to one exact Gamescope package on the SteamOS 3.8 line, and it
-steps aside rather than put an older compositor on a newer system. Preview is the newer 3.9 line.
+A Preview installation can run this project's Gamescope build. The selection does not look at the
+SteamOS release or at the version of the Gamescope package the system ships: the artifact itself is
+asked whether it accepts the flags the Game Mode session will pass it, and it is used when it does.
+On SteamOS 3.9.2 Preview, beside Valve's gamescope 3.16.30-2, this project's build was selected and
+ran Game Mode correctly.
 The capture color correction is a backport of a change Valve's newer Gamescope already contains,
 so Remote Play colors from this machine are unaffected. What is not in Valve's build is this
-project's own fix for the corrupted Game Mode menus, so that fix is not active on Preview. Nothing
-on screen says so. The diagnostic report names the Gamescope selection, and on Preview it reads
-`stock`. Applying a project release on the 3.9 line has not been tested, and it would not change
-this selection.
+project's own fix for the corrupted Game Mode menus, so on Preview that fix is present only while
+this project's build is the one selected. Nothing on screen says which one it is. The diagnostic
+report names the Gamescope selection, and that is the line to read on Preview as anywhere else.
+Only the one Preview release measured above has been tested on the 3.9 line.
 
 ## Building the corrected Gamescope
 
@@ -314,10 +316,11 @@ integration update can deliver a new Gamescope build to a system that is already
 no new USB image. That reaches a system whose installed release is 0.1.9 or newer, because an
 update writes only the files the installed copy of the update tool already knows about, and
 Gamescope joined that list in 0.1.9. The recovery desktop keeps its original Gamescope. The
-corrected build is activated once the installed system ships the Gamescope package the artifact
-was built from, on the SteamOS 3.8 line. An image may carry the artifact on any channel; the
-selection happens at install and repair time and returns to Valve's build whenever the package
-does not match.
+corrected build is activated when the artifact accepts the flags the Game Mode session will pass
+it, which is checked inside the prepared system with no display and under a bounded timeout.
+Neither the installed Gamescope package version nor the SteamOS release is part of that check. An
+image may carry the artifact on any channel; the selection happens at install and repair time and
+returns to Valve's build whenever that check does not pass.
 
 ## Building Remote Play receiver support
 

@@ -173,10 +173,10 @@ if [[ -n "$REMOTE_PLAY_DIR" ]]; then
   [[ -r "$REMOTE_PLAY_DIR/remote-play-build.json" ]] || die "Incomplete Remote Play artifact"
 fi
 if [[ -n "$GAMESCOPE_DIR" ]]; then
-  # The artifact is carried, never forced. pc_install_gamescope selects it only
-  # when the running SteamOS and its Gamescope package both match, and returns
-  # to Valve's build on anything else, so a beta or Preview image can hold it
-  # without using it. That selection is proven in both directions on hardware.
+  # The artifact is carried, never forced. pc_install_gamescope asks the artifact
+  # itself whether it accepts the session's flags, inside the target root and with
+  # no display, and keeps Valve's build on any other outcome, so a beta or Preview
+  # image can hold it without using it.
   GAMESCOPE_DIR="$(realpath "$GAMESCOPE_DIR")"
   for file in root/usr/bin/gamescope gamescope-build.json Gamescope-LICENSE; do
     [[ -r "$GAMESCOPE_DIR/$file" ]] || die "Incomplete Gamescope artifact"

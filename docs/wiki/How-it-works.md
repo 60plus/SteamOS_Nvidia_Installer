@@ -299,18 +299,22 @@ the running system. The image builder accepts it through `--gamescope-dir`.
 
 The binary lives under `/usr/lib/steamos-nvidia/gamescope/bin`, leaving the
 package-managed binary intact. A user service drop-in selects it through PATH only
-on a SteamOS 3.8 release that ships exactly the Gamescope package the artifact was
-built from, with the expected session script. Naming a SteamOS point release here
+when the artifact itself accepts the flag list the session recipe passes, which is
+checked by running it inside the target root with `--help` last, the display
+variables removed and a bounded timeout. The expected session script is still required. Neither the
+installed Gamescope package nor the SteamOS release takes part in that decision. Naming a SteamOS point release here
 was a mistake that cost a working feature: stable moved from 3.8.16 to 3.8.28 on
 22 September 2026, the rule stopped matching, and outgoing Remote Play went back to
-a black picture on an ordinary system update. The package version is the real
-constraint, so a later point release that keeps the same Gamescope keeps the
-correction, and a Gamescope bump returns to Valve's build until a new artifact
-exists. The installer verifies its source revision, hash and target library
+a black picture on an ordinary system update. Comparing the installed Gamescope
+package was the next mistake: it would have stood this artifact aside on SteamOS
+3.9.2, where the same build was measured running Game Mode correctly beside Valve's
+gamescope 3.16.30-2. Neither the release nor the package version is a condition now,
+so a Gamescope bump no longer returns the system to Valve's build on its own. The installer verifies its source revision, hash and target library
 resolution.
 A recovery image keeps the stock binary. The A/B repair hook carries the artifact
-into the updated slot and reevaluates compatibility before activation. A future
-or unsupported version returns to stock Gamescope automatically.
+into the updated slot and reevaluates compatibility before activation. An artifact that no
+longer accepts the session's flags returns to stock Gamescope automatically; a newer
+Gamescope package in the updated slot does not by itself cause that.
 
 Installer Update preserves an already installed artifact, reevaluates this policy,
 and since 0.1.9 can also deliver the Gamescope artifact itself. The binary, its
@@ -320,10 +324,10 @@ verification of binary against provenance runs whether the artifact arrived with
 image or with a release. Delivery is not the same as activation: an artifact built
 from a source commit the installer does not recognize is refused, and the selection
 rule above is then applied exactly as it is after a fresh installation, so a system
-whose SteamOS ships a different Gamescope package keeps Valve's build. Diagnostics
+where the delivered build does not accept the session's flags keeps Valve's build. Diagnostics
 include the selected status and session environment. The shipped-file checksum
 manifest covers the capture binary, provenance and licenses. Generated status
-and the version-dependent service selection are excluded because they change
+and the service selection drop-in are excluded because they change
 when an OS update activates the backport or returns to stock. Physical capture tests are
 still required before treating the correction as verified on a particular GPU.
 

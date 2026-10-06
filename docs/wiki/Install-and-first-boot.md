@@ -59,10 +59,10 @@ time to the update. If setup reports a download error, see
 After setup, check Game Mode, Desktop Mode and a game you know. Confirm audio
 output, resolution and controller input, then restart once.
 
-The fix for the corrupted Game Mode menus on NVIDIA rides on a Gamescope
-build matched to one exact SteamOS package. It is chosen automatically, and
-it steps aside if SteamOS later ships a Gamescope it was not built for,
-without saying so on screen. This command says which build is in use:
+The fix for the corrupted Game Mode menus on NVIDIA rides on this project's
+own Gamescope build. It is chosen automatically, by asking that build whether
+it accepts the flags your Game Mode session passes it, and it steps aside
+without saying so on screen if the answer is no. This command says which build is in use:
 
 ```bash
 cat /usr/lib/steamos-nvidia/gamescope/status.txt

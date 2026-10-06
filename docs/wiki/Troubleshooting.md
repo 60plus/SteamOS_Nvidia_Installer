@@ -235,11 +235,12 @@ that. [Updating from an older installer](Installer-Updates.md#updating-from-an-o
 sequence. On 0.1.9 or newer, or on a system installed from a 0.1.9 image or newer, install the
 current release and restart.
 
-The corrected Gamescope is only selected when the installed SteamOS carries exactly the Gamescope
-package the artifact was built against. If SteamOS moves to a newer Gamescope, the system returns to
-the distribution's own build. That is deliberate: an older patched compositor is never forced over a
-newer one from Valve. The symptom can come back until a new artifact exists, and a diagnostic report
-names which one is in use.
+The corrected Gamescope is selected when the build itself accepts the flags your Game Mode session
+passes it. That is asked when the system is installed and again after every repair, inside the system
+being prepared and with no display opened. The Gamescope package SteamOS has installed and the
+SteamOS release are not part of the decision. If the build does not accept those flags it stands
+aside on the distribution's own build, the symptom can come back until a new artifact exists, and a
+diagnostic report names which one is in use.
 
 **The old workarounds are no longer needed.** Before 0.2.0, three display settings each avoided the
 fault on their own, because each of them forced the frame to be composed: turning the performance
@@ -312,8 +313,8 @@ other card has been tested here. A result from a different NVIDIA card is welcom
 **If you still see this on 0.2.0 or newer**, first confirm which Gamescope your system is running.
 Take a diagnostic report and find the section named `Experimental Gamescope selection`. A line
 beginning `capture-backport` means this project's build is in use. A line beginning `stock` means
-the distribution's own build is in use, so the fix is not present, and that happens when SteamOS
-carries a Gamescope package the artifact was not built against rather than because an update went
+the distribution's own build is in use, so the fix is not present, and that happens when this
+project's build did not accept the flags the session passes it rather than because an update went
 wrong. The Game Mode session records the decision once at startup, in the journal of
 `gamescope-session.service` in your own user session:
 

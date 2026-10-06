@@ -28,11 +28,15 @@ separate from a SteamOS update; check the OS version in system settings.
 
 ### Check the Gamescope build after an update
 
-The Gamescope build this project ships is matched to one exact SteamOS gamescope package. If an OS
-update brings a different gamescope package, or moves the system off the 3.8 line, the update
-still succeeds, but the new slot keeps SteamOS's own Gamescope instead of ours. This is
-deliberate. A newer Gamescope from Valve is left in place rather than being replaced by the older
-patched build. While SteamOS's own Gamescope is in use, the corrections this project carries are
+The Gamescope build this project ships is selected by asking the build itself. At installation and
+at update repair it is run inside the new system with the flags that system's own Game Mode session
+would pass it, with no display and a time limit, and it is kept only when it accepts all of them.
+The gamescope package SteamOS has installed and the SteamOS release are not part of that decision.
+If an OS update changes the way the session starts Gamescope so that our build no longer accepts
+those flags, the update still succeeds, but the new slot keeps SteamOS's own Gamescope instead of
+ours. This is
+deliberate. A newer Gamescope from Valve does not stand our build aside by itself: on SteamOS 3.9.2 Preview,
+with Valve's gamescope 3.16.30-2 installed, our build was kept and worked. While SteamOS's own Gamescope is in use, the corrections this project carries are
 not applied, so the corrupted Game Mode menus that release 0.2.0 clears can appear again. Nothing
 on screen announces the change, so read the recorded selection after the reboot:
 
@@ -44,7 +48,7 @@ A line beginning `capture-backport` means this project's Gamescope is in use. A 
 `stock` means it is not, and the corrections it carries, including the menu fix, are not applied
 on that build. The capture color correction is a backport, so a newer Gamescope from SteamOS may
 already carry that part. The menu fix is this project's own change and is in no SteamOS build, so
-on `stock` the corrupted menus can come back and stay until a build matched to the new package is
+on `stock` the corrupted menus can come back and stay until a build that the new session accepts is
 released. That is why this check is worth running after an OS update rather than treating it as a
 formality. The same line appears in the diagnostic report as **Experimental Gamescope selection**.
 If the file does not exist at all, the image was built without this project's Gamescope artifact,
@@ -391,15 +395,17 @@ by either option. An unfamiliar update format is rejected
 before our repair hook is installed; do not bypass that check by manually
 marking the new slot valid.
 
-This project's Gamescope build is selected only on the SteamOS 3.8 line, and Preview has moved on
-to 3.9, so a Preview installation uses the SteamOS build and does not carry the menu fix. The
-corrupted menus can therefore come back there; the Preview build has not been tested for this.
+This project's Gamescope build is not tied to a SteamOS line. On Preview it is kept when it accepts
+the flags that system's Game Mode session passes it, and that was measured on SteamOS 3.9.2 Preview
+with Valve's gamescope 3.16.30-2 installed, where our build ran and the menu fix was in effect. That
+is one measurement on one machine, and a later Preview release can still change the way the session
+starts Gamescope, after which our build stands aside and the corrupted menus can come back there.
 Read the recorded selection after first setup:
 
 ```bash
 cat /usr/lib/steamos-nvidia/gamescope/status.txt
 ```
 
-A line beginning `stock` means this project's build is not in use. Applying a
-project release on the 3.9 line has not been tested, and it would not change
-this selection.
+A line beginning `stock` means this project's build is not in use. The 3.9 line is not excluded: on
+SteamOS 3.9.2 Preview, with Valve's gamescope 3.16.30-2 installed, this
+project's build was kept and worked.

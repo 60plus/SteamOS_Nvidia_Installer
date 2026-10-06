@@ -801,21 +801,102 @@ ExecStart=/usr/lib/steamos-nvidia/mangoapp
 MANGO_SERVICE
 }
 
-# Keep the capture backport separate from Valve's executable. Unknown target
-# versions retain stock Gamescope instead of carrying an older compositor forward.
-# Each artifact is built from one Gamescope release, so it is selected only where
-# the system ships exactly that package. Naming a SteamOS point release here was a
-# mistake: Valve moved stable from 3.8.16 to 3.8.28 on 22 September 2026, the pair
-# stopped matching, and the capture correction silently switched itself off, which
-# takes Remote Play from this machine back to a black picture. The package version
-# is the real constraint, so that is what is compared; the release only has to stay
-# on the 3.8 line the artifact was compiled against.
+# Keep the capture backport separate from Valve's executable. This map identifies the
+# pinned artifacts this project supports and nothing else: the version of the package
+# installed in the target is NOT a condition of the selection. Two earlier rules were
+# both measured wrong. Naming a SteamOS point release switched the correction off when
+# Valve moved stable from 3.8.16 to 3.8.28 on 22 September 2026, which takes Remote
+# Play from this machine back to a black picture. Comparing the package version then
+# switched it off on 3.9.2, where the artifact was measured working on 2026-09-30.
+# What decides now is whether the artifact accepts the session's flags.
 pc_gamescope_expected_package() {
   case "$1" in
     2b79e07b3da1723c7e5c5f44f18de36c6cb78b9e) printf 'gamescope 3.16.23.4-1\n' ;;
     154f435a2c0026510545b7b7524d104bed253cb3) printf 'gamescope 3.16.23.6-1\n' ;;
     *) return 1 ;;
   esac
+}
+
+# The selection gate, as a flag probe rather than a version equality.
+#
+# Measured on 2026-09-30: our 3.16.23.6-based artifact ran as the Game Mode
+# compositor on SteamOS 3.9.2 with Valve's gamescope 3.16.30-2, menus clean and
+# the overlay working, while an exact-version equality would have stood it aside.
+# The pin was precautionary and never empirical, so the question it should ask is
+# the one that can be answered offline: does this binary accept the flags this
+# session will pass it?
+#
+# Our binary is run with the session's own flag list plus `--help`. Exit 0 means every
+# flag was accepted. A non-zero exit means the artifact is not usable for this session,
+# which is usually a flag it does not know but can also be a timeout or a refusal to
+# parse the recipe, so the reason is not assumed. Either way the honest answer is to
+# stand aside on Valve's compositor. Nothing is started, no display is touched, and it
+# works against a staged slot before its first boot. Do not parse `--help` output
+# instead: that was measured to be wrong.
+pc_gamescope_session_flags() {
+  python3 - "$1/usr/lib/steamos/gamescope-session" <<'SESSION_FLAGS'
+import shlex
+import sys
+from pathlib import Path
+
+MARKER = 'exec gamescope'
+LIMIT = 256 * 1024
+
+path = Path(sys.argv[1])
+raw = path.read_bytes()
+if len(raw) > LIMIT:
+    raise SystemExit('session recipe is larger than this probe reads')
+text = raw.decode('utf-8')
+if text.count(MARKER) != 1:
+    raise SystemExit('expected exactly one "%s" in the session recipe' % MARKER)
+if chr(13) in text:
+    # A carriage return would survive the continuation join and reach the probe as
+    # a token, which getopt may accept as a positional and pass for the wrong
+    # reason. This is not the format we parse, so say so instead of guessing.
+    raise SystemExit('the session recipe is not the line format this probe parses')
+# The command continues over escaped newlines; take it to the first real end.
+tail = text.split(MARKER, 1)[1]
+line, joined = [], tail.replace(chr(92) + chr(10), ' ')
+command = joined.split(chr(10), 1)[0]
+# shlex keeps '-O *,eDP-1' as two words and leaves an unexpanded "$socket" as a
+# literal value, which is what a flag probe needs: the names are what matter.
+for word in shlex.split(command, comments=False):
+    if not word:
+        continue
+    if word == '--':
+        # Everything past a bare separator is the child's argv, not gamescope's
+        # flags. Probing it would send --help to the child and pass for the wrong
+        # reason, so the probe stops here.
+        break
+    line.append(word)
+if not line:
+    raise SystemExit('the session recipe passes gamescope no flags to probe')
+if any(chr(10) in word or chr(13) in word for word in line):
+    raise SystemExit('a multiline argument cannot be probed')
+# Separated by newline, not NUL: command substitution silently drops NUL bytes,
+# so a NUL-joined list arrived as one glued argument and the probe then failed for
+# a reason that had nothing to do with the flags. Newline is safe here only because
+# an argument containing one is refused above.
+# Written as bytes, not text: a text-mode stdout would translate the separator on
+# some hosts and every token would come back with a stray carriage return.
+sys.stdout.buffer.write(chr(10).join(line).encode('utf-8'))
+SESSION_FLAGS
+}
+
+pc_gamescope_accepts_session_flags() {
+  local root="$1" binary='/usr/lib/steamos-nvidia/gamescope/bin/gamescope'
+  local -a flags=()
+  local raw
+  raw=$(pc_gamescope_session_flags "$root") || return 1
+  [[ -n $raw ]] || return 1
+  mapfile -t flags < <(printf '%s' "$raw")
+  ((${#flags[@]})) || return 1
+  # `--help` goes LAST on purpose. getopt stops at the first flag it does not
+  # know, so a probe that asked for help first would print usage and exit 0
+  # before ever reaching the unknown flag, and pass for the wrong reason.
+  # No display is offered and the run is bounded, so a binary that tried to
+  # open one, or hung, cannot decide the selection.
+  chroot "$root" /usr/bin/env -u DISPLAY -u WAYLAND_DISPLAY -u XDG_RUNTIME_DIR     /usr/bin/timeout 20 "$binary" "${flags[@]}" --help >/dev/null 2>&1
 }
 
 pc_install_gamescope() {
@@ -839,19 +920,25 @@ CAPTURE_VERIFY
   }
   result=stock
   version=$(chroot "$root" pacman -Q gamescope 2>/dev/null) || version=unknown
-  if grep -Eq '^VERSION_ID="?3\.8\.' "$root/etc/os-release" &&
-     [[ $version == "$expected" ]] &&
-     grep -Eq '^exec gamescope[[:space:]]' "$root/usr/lib/steamos/gamescope-session"; then
+  # `expected` still has to name a reviewed artifact, but it is no longer compared
+  # with the version installed in the target: see pc_gamescope_accepts_session_flags.
+  if grep -Eq '^exec gamescope[[:space:]]' "$root/usr/lib/steamos/gamescope-session"; then
+    # Order matters. An artifact whose libraries do not resolve in this root is a
+    # broken target and fails the install, because carrying on would hand back a
+    # system quietly missing the correction. Only once the binary is usable here
+    # does the flag probe get to decide, and its refusal is an ordinary stand-aside
+    # rather than an error.
     chroot "$root" /usr/lib/ld-linux-x86-64.so.2 --list /usr/lib/steamos-nvidia/gamescope/bin/gamescope >/dev/null || return 1
-    mkdir -p "$(dirname "$override")"
-    cat > "$override" <<'CAPTURE_SERVICE'
+    if pc_gamescope_accepts_session_flags "$root"; then
+      mkdir -p "$(dirname "$override")"
+      cat > "$override" <<'CAPTURE_SERVICE'
 [Service]
 Environment="PATH=/usr/lib/steamos-nvidia/gamescope/bin:/usr/local/sbin:/usr/local/bin:/usr/bin"
 CAPTURE_SERVICE
-    result=capture-backport
-  else
-    rm -f "$override"
+      result=capture-backport
+    fi
   fi
+  [[ $result == capture-backport ]] || rm -f "$override"
   printf '%s (%s)\n' "$result" "$version" > "$base/status.txt"
   echo "Gamescope selection: $result ($version)"
 }
