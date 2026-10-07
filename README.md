@@ -98,7 +98,7 @@ The original MIT license and copyright notice are retained. See
 Sharing that origin does not make existing installations interchangeable. Migrating an
 installation from `28allday/steamos-nvidia-installer` to this project is not a validated
 procedure. The tested starting point is a clean installation from an image built by this
-project. You can test it on a separate drive before replacing your current system;
+project. You can test it on a separate USB drive before replacing your current system;
 installation erases the selected target drive. This is separate from the documented
 update-source transition between this project's own repositories in 0.2.2.
 
