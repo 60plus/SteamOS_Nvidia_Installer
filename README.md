@@ -95,6 +95,13 @@ with additional PC integration, recovery checks and desktop maintenance tools.
 The original MIT license and copyright notice are retained. See
 [How it works](https://github.com/60plus/SteamOS_Nvidia_Installer/wiki/How-it-works) for the architecture.
 
+Sharing that origin does not make existing installations interchangeable. Migrating an
+installation from `28allday/steamos-nvidia-installer` to this project is not a validated
+procedure. The tested starting point is a clean installation from an image built by this
+project. You can test it on a separate drive before replacing your current system;
+installation erases the selected target drive. This is separate from the documented
+update-source transition between this project's own repositories in 0.2.2.
+
 Independent project, not affiliated with or endorsed by Valve or NVIDIA.
 The build instructions use Valve's official recovery download as the starting point.
 See [LICENSE](LICENSE).

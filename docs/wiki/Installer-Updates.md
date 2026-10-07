@@ -12,6 +12,25 @@ The shortcut is included only in builds configured with a signed release source.
 If it is missing, updating SteamOS will not add it. Use an installer that includes
 the updater or a bootstrap procedure supplied by the maintainer.
 
+## If Installer Update is missing
+
+First check the application menu for **SteamOS NVIDIA Installer Update**. A missing
+desktop shortcut, an absent application and an application that offers no update are
+different problems. The standard complete build configures the official signed update
+source; a base-script build without a source can omit this tool. **Change NVIDIA
+Driver** is a separate application, so its presence does not establish that Installer
+Update is installed.
+
+When asking for help, include the diagnostic report, the image/build command if
+available, and the installation or migration steps. If the updater opens, include the
+source and installed/available versions it displays.
+
+Moving an installation from `28allday/steamos-nvidia-installer` to this project has not
+been validated. The transition described under [Where updates come from after
+0.2.2](#where-updates-come-from-after-022) applies to this project's own earlier
+repository, `60plus/steamos-nvidia-installer`, not to installations from another
+maintainer.
+
 ## Install an update
 
 1. Finish any pending SteamOS update and reboot first.
