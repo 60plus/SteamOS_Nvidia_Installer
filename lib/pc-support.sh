@@ -138,10 +138,20 @@ HDR_SERVICE
     # as an instance of app-steam@.service from the desktop, and the workaround has to
     # be reapplied after every client verification in either one. The relationship is
     # declared here rather than in the worker: the desktop instance name is chosen at
-    # launch, so no unit can name it. Wants pulls the worker in, Before orders it after
-    # the launcher, and PropagatesStopTo clears RemainAfterExit when Steam stops so the
-    # next start runs it again. A systemd too old for that last key ignores it with a
-    # log line and only loses the reapplication, which is where this started.
+    # launch, so no unit can name it. Wants pulls the worker in and Before orders it
+    # after the launcher. PropagatesStopTo is kept because it helps where it fires, but
+    # correctness no longer rests on it: the worker does not remain active, so every
+    # start of either launcher runs it again whatever systemd did with the stop. On
+    # 2026-10-09 a full session switch stopped both the launcher and the session targets
+    # with no job reaching the worker at all, and why the propagation produced nothing
+    # there is still unexplained.
+    #
+    # Two limits worth stating rather than discovering again. This covers a client
+    # update that is followed by a launcher or session start, which is the usual shape;
+    # it does NOT cover Steam replacing the asset inside a launcher that keeps running,
+    # because nothing starts then. And on an existing install the worker may already be
+    # active from before the change, so the first clean run needs a new user manager or
+    # one restart of the worker; a daemon-reload on its own does not prove it.
     local launcher
     for launcher in steam-launcher.service 'app-steam@.service'; do
       mkdir -p "$root/usr/lib/systemd/user/$launcher.d"
@@ -160,7 +170,11 @@ Description=Apply verified Steam notification workaround after client verificati
 Type=oneshot
 ExecStart=/usr/bin/python3 /usr/lib/steamos-nvidia/notification-renderer.py startup
 TimeoutStartSec=130
-RemainAfterExit=yes
+# Deliberately not kept active after a successful run. Measured on hardware 2026-10-09:
+# a whole Game Mode session switch does not re-execute a worker that is already active,
+# so the workaround would lapse on the next Steam client update while the unit still
+# reported success. Running at every launch is not free, it waits a couple of seconds
+# and reads a 14 MB asset, but the run is idempotent and stops at "already patched".
 NOTIFICATION_WORKER
   fi
   [[ -f "$root/usr/lib/steamos-nvidia/safe-graphics.py" ]] || return 1

@@ -269,7 +269,11 @@ class Support(unittest.TestCase):
         worker = (units / "steamos-nvidia-notifications.service").read_text()
         self.assertNotIn("steam-launcher.service", worker,
                          "the worker must name no launcher: the desktop instance has no fixed name")
-        self.assertIn("RemainAfterExit=yes", worker)
+        self.assertNotIn("RemainAfterExit", worker,
+                         "a worker that stays active is never re-executed on a session switch, "
+                         "so the workaround lapses on the next Steam client update while the "
+                         "unit still reports success. Measured on hardware 2026-10-09")
+        self.assertIn("Type=oneshot", worker)
 
     def test_missing_hdr_initializer_rejects_installation(self):
         self.display_fixture()
