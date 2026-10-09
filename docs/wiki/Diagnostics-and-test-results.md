@@ -54,6 +54,21 @@ the version; a `-dev` suffix means a development build, not a published release.
 Older images may not have this field. Report the image filename and Source commit
 from the same file instead. Do not infer an installer version from SteamOS.
 
+## Check the configured update source
+
+The Configured installer update source section shows where Installer Update is
+configured to check next. It does not establish where the original installation
+came from. It distinguishes the current and legacy official GitHub repositories,
+a custom endpoint, and missing, unreadable or invalid configuration. It also
+reports files the updater rejects because they are symlinks, are not owned by
+root, or can be written by other users.
+
+For a custom source, the report includes only the release and download servers.
+Paths, display names and signing keys are omitted. URLs containing credentials,
+query strings or fragments are invalid for the updater and are not printed.
+The probe makes no network requests, does not verify the signing key and does
+not change the configuration. A source problem does not stop the other checks.
+
 ## Choose the right report
 
 Use a bug report for a failure, a feature request for an improvement, or a
