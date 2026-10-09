@@ -50,11 +50,12 @@ settings if the connection supports it. HDMI and DisplayPort can behave differen
 on the same screen. On a 4K screen choose 3840x2160 rather than 4096x2160. Where
 this project's Gamescope build is in use the wider mode is no longer offered at all;
 where the system's own build is in use it is offered and then never applied, with no
-message. Choose the resolution before you start playing, because raising it above
-1920x1080 while Game Mode is already running can leave the picture unusable until
-the session restarts. This release does not fix that second problem, and where the
-fault lies has not been established; [Troubleshooting](Troubleshooting.md) records
-what was measured. An optional
+message. Raising the resolution to 3840x2160 while Game Mode is already running
+used to leave the picture unusable until the session restarted. From 0.2.4 that is
+fixed where this project's Gamescope build is in use, measured on a 4K monitor over
+DisplayPort; where the system's own build is in use, choose the resolution before you
+start playing. [Troubleshooting](Troubleshooting.md#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode)
+records what was measured. An optional
 [Safe Graphics](Safe-Graphics.md)
 session is included in every image this project builds, and must be selected
 manually. Automatic recovery from a failed boot is not provided.

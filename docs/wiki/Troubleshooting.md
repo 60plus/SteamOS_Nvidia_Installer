@@ -337,35 +337,45 @@ see [the entry below on raising the resolution in Game Mode](#the-picture-is-cor
 
 ### The picture is corrupted after raising the resolution in Game Mode
 
-Raising the output resolution above 1920x1080 while Game Mode is already running can corrupt the
-whole screen: the picture drawn correctly and then repeated lower down at an offset, tiles that keep their
-shape while filled with dense static, bands of noise. Nothing on screen clears it, so at that point
-the machine usually cannot be operated by hand.
+Raising the output resolution while Game Mode is already running can corrupt the whole screen: the
+picture drawn correctly and then repeated lower down at an offset, tiles that keep their shape while
+filled with dense static, bands of noise. Switching HDR on while the output is at 3840x2160 can do the
+same. Nothing on screen clears it, so at that point the machine usually cannot be operated by hand.
 
-**Only restarting the Game Mode session clears it.** If you can reach the PC from another computer
-on your network, restarting the session from there is enough. Otherwise restart the machine with its
-power button. The resolution you chose is kept, and a session that starts in it is correct from the
-first frame, so the cost is the one corrupted session between choosing the mode and restarting.
+**Release 0.2.4 fixes this where this project's Gamescope build is selected.** That build now hands
+the display images allocated through GBM. With it, raising the resolution to 3840x2160, switching HDR
+on and off at that resolution and switching VRR stayed correct through repeated changes, a game and
+both overlays, and the picture was correct after a cold start with HDR already on. That was measured
+on one machine: an RTX 5060 with NVIDIA driver 610.57.04, SteamOS 3.8.28 and a 4K monitor over
+DisplayPort at 60 Hz. A television on HDMI was not tested again with 0.2.4, so on HDMI treat it as
+untested rather than as fixed. [How it works](How-it-works.md#changing-the-output-to-4k-on-nvidia)
+describes the change.
 
-What does and does not trigger it: starting a session at 3840x2160 is clean, lowering the resolution
-while the session runs is clean, and raising it from 1280x720 to 1920x1080 is clean. The change that
-corrupted the picture was 1920x1080 up to 3840x2160, and having been at a higher resolution earlier
-in the same session does not protect you.
+**If you still see it**, because the system runs Valve's own Gamescope or an older release, only
+restarting the Game Mode session clears it. If you can reach the PC
+from another computer on your network, restarting the session from there is enough. Otherwise restart
+the machine with its power button. The resolution you chose is kept. If it was HDR you switched on,
+turn it off first: with HDR left on at 3840x2160, the Gamescope in 0.2.3 started the next session with
+a corrupted band along the bottom of the screen.
 
-That is what was measured, on one machine: an RTX 5060 with NVIDIA driver 615.71.09, SteamOS 3.8.28
-build 20260922.1, the Gamescope build carried by 0.2.0, and a 4K LG television over HDMI. One upward
-change was corrupt and one was clean, so on another display, another connection or another pair of
-modes, treat a change made while the session is running as untested rather than as known safe.
+What was measured before 0.2.4: starting a session at 3840x2160 with HDR off was clean, lowering the
+resolution while the session ran was clean, and raising it from 1280x720 to 1920x1080 or from
+1920x1080 to 2560x1440 was clean. The changes that corrupted the picture were 1920x1080 up to
+3840x2160 on a 4K LG television over HDMI, with the Gamescope build carried by 0.2.0 and NVIDIA driver
+615.71.09, and 2560x1440 up to 3840x2160 on a 4K monitor over DisplayPort with the build carried by
+0.2.3, every time it was tried. Having been at a higher resolution earlier in the same session did not
+protect against it.
 
-It is not the release 0.2.0 menu fix: it happens with that fix switched off as well. The image
-Gamescope composes is correct and the display settings committed for it are correct, so what goes
-wrong is the reading out of a finished image, not anything this project changes about the picture.
-Whether the fault belongs to Gamescope or to the NVIDIA driver below it has not been settled here.
-Changing the cable will not help: a failing cable gives sparkle and dropouts, while here the
-structure of the picture survives intact and is simply read wrongly.
+It is not the release 0.2.0 menu fix: it happens with that fix switched off as well. Valve's packaged
+Gamescope 3.16.23.6-1 corrupted the picture on the same resolution change on the same machine. The
+image Gamescope composes is correct, and what goes wrong is the reading out of a finished image, which
+is why allocating that image differently avoided it. Whether the underlying fault belongs to Gamescope
+or to the NVIDIA driver below it has not been settled. Changing the cable will not help: a failing
+cable gives sparkle and dropouts, while here the structure of the picture survives intact and is
+simply read wrongly.
 
 Do not confuse it with the corrupted menus above. That one was cleared by moving the mouse and by a
-few display settings, and 0.2.0 removes it outright. This one is cleared by nothing except
+few display settings, and 0.2.0 removes it outright. This one was cleared by nothing except
 restarting the session.
 
 ### Black border around Game Mode notifications

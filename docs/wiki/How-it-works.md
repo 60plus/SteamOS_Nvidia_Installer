@@ -378,6 +378,28 @@ first, and receives the artifact with the release after that. See
 [Updating from an older installer](Installer-Updates.md#updating-from-an-older-installer)
 for the order. It was published in 0.2.0.
 
+## Changing the output to 4K on NVIDIA
+
+On an NVIDIA card, a running Game Mode session could corrupt the whole picture when the output was
+raised to 3840x2160, or when HDR was switched on at that resolution: the right layout repeated lower
+down at an offset and mixed with static. The image Gamescope composed was correct; reading it out to
+the display was not. Valve's packaged Gamescope 3.16.23.6-1 showed the same fault on the same
+machine.
+
+`patches/gamescope/0005-nvidia-gbm-scanout-experiment.patch` lets Gamescope allocate the images it
+hands to an NVIDIA display through GBM and compose every frame into them. With it, the resolution,
+HDR and VRR changes that broke the picture stayed correct on the machine measured, an RTX 5060
+driving a 4K monitor over DisplayPort at 60 Hz. A television on HDMI has not been measured with it.
+
+The path is switched on by `GAMESCOPE_NVIDIA_GBM_SCANOUT=1`, which the installer writes into the same
+session override that selects this project's Gamescope, so it exists only where that build runs and
+is removed with the selection. Setting it to `0` in the Gamescope session environment switches the
+path off for comparison during a test; there is no reason to set it in normal use. The GBM
+dependency is optional in Gamescope's own build, so a build without the GBM headers would compile and
+pass every test while lacking the fix; this project's build refuses to produce such a binary.
+
+It travels in the Gamescope artifact like the fixes above, and was published in 0.2.4.
+
 ## Code map and contributing
 
 | Component | Main source |
@@ -554,7 +576,13 @@ a session. A brief UI reload can occur at startup.
 
 An unknown client asset is skipped without a reload. A new client version needs
 a reviewed hash and visual testing. A client update later in the same session may
-restore the original; the next Steam start checks again. Since 0.1.8 the startup
+restore the original; the next Steam start checks again. Before 0.2.4 the service
+stayed marked as done after its first run and relied on systemd to reset it when
+Steam stopped. A plain restart of Steam did reset it, but a full switch into Game
+Mode did not, so a client update followed by that switch could leave the original
+asset in place while the service still reported success. From 0.2.4 the service
+does not stay active once it finishes, so every start of either Steam service runs
+the check again. Since 0.1.8 the startup
 hook is attached to both Steam services, `steam-launcher.service` in Game Mode and
 instances of `app-steam@.service` from the desktop, so starting Steam from the
 desktop runs the same check. The client asset is shared, so Game Mode and desktop

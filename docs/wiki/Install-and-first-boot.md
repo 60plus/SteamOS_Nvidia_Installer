@@ -83,13 +83,14 @@ Check the monitor's own information screen for the actual resolution and refresh
 rate. If Steam shows the wrong Native resolution, turn **Automatically Set
 Resolution** off and select the correct mode.
 
-Know this before you raise the output above 1920x1080: the picture is corrupted as soon as the new
-mode is applied, nothing on screen clears it, and the screen cannot be used until the session
-restarts. The new mode is saved, so the session comes back clean in it. If it happens, restart the
-Game Mode session from another computer on your network, or switch the PC off and on with its
-power button. See [The picture is corrupted after raising the resolution in Game
+From 0.2.4, raising the output to 3840x2160 while Game Mode runs no longer corrupts the picture where
+this project's Gamescope build is in use; that was measured on a 4K monitor over DisplayPort. Where
+the system's own Gamescope is in use, the picture can still be corrupted as soon as the new mode is
+applied, and nothing on screen clears it. The new mode is saved, so a restarted session comes back
+clean in it: restart the Game Mode session from another computer on your network, or switch the PC
+off and on with its power button. See [The picture is corrupted after raising the resolution in Game
 Mode](Troubleshooting.md#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode). Lowering the resolution does
-not do this, and neither does going from 1280x720 up to 1920x1080. If the list offers 4096x2160,
+not do this. If the list offers 4096x2160,
 choose 3840x2160 instead: 4096x2160 is accepted and saved, then quietly ignored, and the output
 drops to whatever mode the display reports as its preferred one, with no message. Neither of these
 faults is caused by this installer.
