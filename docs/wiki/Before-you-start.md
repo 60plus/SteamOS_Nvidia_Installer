@@ -51,7 +51,7 @@ on the same screen. On a 4K screen choose 3840x2160 rather than 4096x2160. Where
 this project's Gamescope build is in use the wider mode is no longer offered at all;
 where the system's own build is in use it is offered and then never applied, with no
 message. Raising the resolution to 3840x2160 while Game Mode is already running
-used to leave the picture unusable until the session restarted. From 0.2.4 that is
+used to leave the picture unusable. From 0.2.4 that is
 fixed where this project's Gamescope build is in use, measured on a 4K monitor over
 DisplayPort; where the system's own build is in use, choose the resolution before you
 start playing. [Troubleshooting](Troubleshooting.md#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode)

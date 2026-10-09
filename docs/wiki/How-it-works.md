@@ -383,13 +383,14 @@ for the order. It was published in 0.2.0.
 On an NVIDIA card, a running Game Mode session could corrupt the whole picture when the output was
 raised to 3840x2160, or when HDR was switched on at that resolution: the right layout repeated lower
 down at an offset and mixed with static. The image Gamescope composed was correct; reading it out to
-the display was not. Valve's packaged Gamescope 3.16.23.6-1 showed the same fault on the same
-machine.
+the display was not. Valve's packaged Gamescope 3.16.23.6-1 showed the same resolution-change fault
+on the same machine.
 
 `patches/gamescope/0005-nvidia-gbm-scanout-experiment.patch` lets Gamescope allocate the images it
-hands to an NVIDIA display through GBM and compose every frame into them. With it, the resolution,
-HDR and VRR changes that broke the picture stayed correct on the machine measured, an RTX 5060
-driving a 4K monitor over DisplayPort at 60 Hz. A television on HDMI has not been measured with it.
+hands to an NVIDIA display through GBM and compose every frame into them. With it, raising the
+resolution to 3840x2160 and switching HDR at that resolution, which had broken the picture, stayed
+correct, and so did VRR changes, on the machine measured, an RTX 5060 driving a 4K monitor over
+DisplayPort at 60 Hz. A television on HDMI has not been measured with it.
 
 The path is switched on by `GAMESCOPE_NVIDIA_GBM_SCANOUT=1`, which the installer writes into the same
 session override that selects this project's Gamescope, so it exists only where that build runs and

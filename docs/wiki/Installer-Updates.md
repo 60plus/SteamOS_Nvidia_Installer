@@ -85,8 +85,11 @@ before you update.
 
 ## Updating from an older installer
 
-For the current 0.2.2 release, installed tools 0.1.9 or newer can update directly
-through the update window, subject to the SteamOS checks below. Older tools need
+For the current 0.2.4 release, installed tools 0.2.2 or newer can update directly
+through the update window, subject to the SteamOS checks below. Tools from 0.1.9 to
+0.2.1 still check the previous repository, whose latest release is 0.2.2: install
+0.2.2 first, which moves the update channel here, and 0.2.4 is offered after that.
+See [Where updates come from after 0.2.2](#where-updates-come-from-after-022). Older tools need
 extra steps; the sequence below avoids skipped files. Future changes to the
 package format or file list may need a different sequence, described in that
 release's instructions.

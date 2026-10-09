@@ -340,7 +340,7 @@ see [the entry below on raising the resolution in Game Mode](#the-picture-is-cor
 Raising the output resolution while Game Mode is already running can corrupt the whole screen: the
 picture drawn correctly and then repeated lower down at an offset, tiles that keep their shape while
 filled with dense static, bands of noise. Switching HDR on while the output is at 3840x2160 can do the
-same. Nothing on screen clears it, so at that point the machine usually cannot be operated by hand.
+same. Once it happens, the screen usually cannot be operated by hand.
 
 **Release 0.2.4 fixes this where this project's Gamescope build is selected.** That build now hands
 the display images allocated through GBM. With it, raising the resolution to 3840x2160, switching HDR
@@ -351,12 +351,13 @@ DisplayPort at 60 Hz. A television on HDMI was not tested again with 0.2.4, so o
 untested rather than as fixed. [How it works](How-it-works.md#changing-the-output-to-4k-on-nvidia)
 describes the change.
 
-**If you still see it**, because the system runs Valve's own Gamescope or an older release, only
-restarting the Game Mode session clears it. If you can reach the PC
+**If you still see it**, because the system runs Valve's own Gamescope or an older release, restarting
+the Game Mode session is the workaround that has been verified to clear it. If you can reach the PC
 from another computer on your network, restarting the session from there is enough. Otherwise restart
 the machine with its power button. The resolution you chose is kept. If it was HDR you switched on,
-turn it off first: with HDR left on at 3840x2160, the Gamescope in 0.2.3 started the next session with
-a corrupted band along the bottom of the screen.
+HDR stays on too: with the Gamescope in 0.2.3 the restarted session then showed a corrupted band along
+the bottom of the screen while the rest of the picture and the menus worked, so switch HDR off in the
+display settings at that point.
 
 What was measured before 0.2.4: starting a session at 3840x2160 with HDR off was clean, lowering the
 resolution while the session ran was clean, and raising it from 1280x720 to 1920x1080 or from
@@ -370,13 +371,11 @@ It is not the release 0.2.0 menu fix: it happens with that fix switched off as w
 Gamescope 3.16.23.6-1 corrupted the picture on the same resolution change on the same machine. The
 image Gamescope composes is correct, and what goes wrong is the reading out of a finished image, which
 is why allocating that image differently avoided it. Whether the underlying fault belongs to Gamescope
-or to the NVIDIA driver below it has not been settled. Changing the cable will not help: a failing
-cable gives sparkle and dropouts, while here the structure of the picture survives intact and is
-simply read wrongly.
+or to the NVIDIA driver below it has not been settled. Swapping the HDMI cable changed nothing, and on
+DisplayPort the same cable carried a correct picture once the image was allocated through GBM.
 
 Do not confuse it with the corrupted menus above. That one was cleared by moving the mouse and by a
-few display settings, and 0.2.0 removes it outright. This one was cleared by nothing except
-restarting the session.
+few display settings, and 0.2.0 removes it outright. This one was cleared by restarting the session.
 
 ### Black border around Game Mode notifications
 

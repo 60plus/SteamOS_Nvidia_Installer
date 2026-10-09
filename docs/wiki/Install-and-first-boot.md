@@ -86,14 +86,15 @@ Resolution** off and select the correct mode.
 From 0.2.4, raising the output to 3840x2160 while Game Mode runs no longer corrupts the picture where
 this project's Gamescope build is in use; that was measured on a 4K monitor over DisplayPort. Where
 the system's own Gamescope is in use, the picture can still be corrupted as soon as the new mode is
-applied, and nothing on screen clears it. The new mode is saved, so a restarted session comes back
-clean in it: restart the Game Mode session from another computer on your network, or switch the PC
-off and on with its power button. See [The picture is corrupted after raising the resolution in Game
-Mode](Troubleshooting.md#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode). Lowering the resolution does
+applied. Restarting the session is the verified way out: restart the Game Mode session from
+another computer on your network, or switch the PC off and on with its power button. The new mode
+is saved, so the session comes back in it, and so is HDR if you had switched it on; [The picture is
+corrupted after raising the resolution in Game
+Mode](Troubleshooting.md#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode) says what to
+do then. Lowering the resolution does
 not do this. If the list offers 4096x2160,
 choose 3840x2160 instead: 4096x2160 is accepted and saved, then quietly ignored, and the output
-drops to whatever mode the display reports as its preferred one, with no message. Neither of these
-faults is caused by this installer.
+drops to whatever mode the display reports as its preferred one, with no message.
 
 Image scaling is a separate setting. For green output over HDMI, leave HDR off or
 use DisplayPort. See
