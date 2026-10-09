@@ -84,7 +84,8 @@ rate. If Steam shows the wrong Native resolution, turn **Automatically Set
 Resolution** off and select the correct mode.
 
 From 0.2.4, raising the output to 3840x2160 while Game Mode runs no longer corrupts the picture where
-this project's Gamescope build is in use; that was measured on a 4K monitor over DisplayPort. Where
+this project's Gamescope build is in use; that was measured on a 4K monitor over DisplayPort and
+checked on the same monitor over HDMI. Where
 the system's own Gamescope is in use, the picture can still be corrupted as soon as the new mode is
 applied. Restarting the session is the verified way out: restart the Game Mode session from
 another computer on your network, or switch the PC off and on with its power button. The new mode

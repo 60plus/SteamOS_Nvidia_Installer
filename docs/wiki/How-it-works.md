@@ -390,7 +390,8 @@ on the same machine.
 hands to an NVIDIA display through GBM and compose every frame into them. With it, raising the
 resolution to 3840x2160 and switching HDR at that resolution, which had broken the picture, stayed
 correct, and so did VRR changes, on the machine measured, an RTX 5060 driving a 4K monitor over
-DisplayPort at 60 Hz. A television on HDMI has not been measured with it.
+DisplayPort at 60 Hz. The same monitor over HDMI was also checked, with HDR and resolution changes
+correct; VRR is not offered on that connection. A television on HDMI has not been measured with it.
 
 The path is switched on by `GAMESCOPE_NVIDIA_GBM_SCANOUT=1`, which the installer writes into the same
 session override that selects this project's Gamescope, so it exists only where that build runs and

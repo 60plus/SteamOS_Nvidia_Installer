@@ -347,8 +347,9 @@ the display images allocated through GBM. With it, raising the resolution to 384
 on and off at that resolution and switching VRR stayed correct through repeated changes, a game and
 both overlays, and the picture was correct after a cold start with HDR already on. That was measured
 on one machine: an RTX 5060 with NVIDIA driver 610.57.04, SteamOS 3.8.28 and a 4K monitor over
-DisplayPort at 60 Hz. A television on HDMI was not tested again with 0.2.4, so on HDMI treat it as
-untested rather than as fixed. [How it works](How-it-works.md#changing-the-output-to-4k-on-nvidia)
+DisplayPort at 60 Hz. The same monitor over HDMI was also checked after a clean installation: HDR
+and resolution changes worked, and VRR is not offered on that connection. A television on HDMI was
+not tested again with 0.2.4, so on a television treat it as untested rather than as fixed. [How it works](How-it-works.md#changing-the-output-to-4k-on-nvidia)
 describes the change.
 
 **If you still see it**, because the system runs Valve's own Gamescope or an older release, restarting

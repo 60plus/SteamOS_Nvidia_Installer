@@ -53,7 +53,7 @@ where the system's own build is in use it is offered and then never applied, wit
 message. Raising the resolution to 3840x2160 while Game Mode is already running
 used to leave the picture unusable. From 0.2.4 that is
 fixed where this project's Gamescope build is in use, measured on a 4K monitor over
-DisplayPort; where the system's own build is in use, choose the resolution before you
+DisplayPort and checked on the same monitor over HDMI; where the system's own build is in use, choose the resolution before you
 start playing. [Troubleshooting](Troubleshooting.md#the-picture-is-corrupted-after-raising-the-resolution-in-game-mode)
 records what was measured. An optional
 [Safe Graphics](Safe-Graphics.md)
