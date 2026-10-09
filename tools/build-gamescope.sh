@@ -18,9 +18,10 @@ chroot "$root" pacman -S --noconfirm gcc glibc linux-api-headers git meson ninja
   libxxf86vm libxcursor libxfont2 libxkbfile libxkbcommon libxkbcommon-x11 libsm libice \
   freerdp pixman libinput seatd pipewire libpipewire libdecor libei luajit libavif \
   aom rav1e libdisplay-info libliftoff glm benchmark catch2 libcap hwdata libpng \
-  lcms2 util-linux-libs xorg-xwayland sdl2-compat systemd-libs dbus libffi expat zlib
+  lcms2 util-linux-libs xorg-xwayland sdl2-compat systemd-libs dbus libffi expat zlib \
+  mesa
 # Tag 3.16.23.6, the tip of Valve's jupiter-3.8 branch and the package current
-# stable SteamOS ships. All four patches in patches/gamescope apply to it unchanged.
+# stable SteamOS ships. All five patches in patches/gamescope apply to it unchanged.
 commit=154f435a2c0026510545b7b7524d104bed253cb3
 work=$(chroot "$root" mktemp -d /tmp/gamescope-build.XXXXXX)
 printf 'Build source directory: %s%s\n' "$root" "$work"
@@ -35,6 +36,14 @@ for patch in "$repo"/patches/gamescope/*.patch; do
   chroot "$root" git -C "$work" apply "$work/$(basename "$patch")"
 done
 chroot "$root" meson setup "$work/build" "$work" --buildtype=release --prefix=/usr
+# The GBM scanout path in 0005 is the 4K fix, and its dependency is declared optional
+# upstream style, so a root without the GBM headers still builds, passes every test
+# below and produces a binary with the path compiled out. Nothing would say so. Refuse
+# that here: a build without GBM is not this project's Gamescope.
+grep -q -- '-DHAVE_GBM=1' "$root$work/build/compile_commands.json" || {
+  printf 'GBM support was not compiled in; the 4K scanout fix would be missing.\n' >&2
+  exit 1
+}
 chroot "$root" ninja -C "$work/build" -j "${JOBS:-4}"
 chroot "$root" meson test -C "$work/build" --print-errorlogs
 cp "$repo/tools/test-gamescope-capture.py" "$root$work/test-capture.py"
