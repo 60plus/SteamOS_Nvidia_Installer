@@ -945,9 +945,15 @@ CAPTURE_VERIFY
     chroot "$root" /usr/lib/ld-linux-x86-64.so.2 --list /usr/lib/steamos-nvidia/gamescope/bin/gamescope >/dev/null || return 1
     if pc_gamescope_accepts_session_flags "$root"; then
       mkdir -p "$(dirname "$override")"
+      # GBM scanout is the 4K fix, and it rides on the selection rather than beside it:
+      # the variable only exists where our own binary runs, so Valve's compositor never
+      # sees it. Measured on 2026-10-09: Valve's packaged build corrupts the picture on
+      # a change to 3840x2160 in a running session, and the same change is clean on
+      # this build with the variable set, as are HDR and VRR toggles.
       cat > "$override" <<'CAPTURE_SERVICE'
 [Service]
 Environment="PATH=/usr/lib/steamos-nvidia/gamescope/bin:/usr/local/sbin:/usr/local/bin:/usr/bin"
+Environment=GAMESCOPE_NVIDIA_GBM_SCANOUT=1
 CAPTURE_SERVICE
       result=capture-backport
     fi

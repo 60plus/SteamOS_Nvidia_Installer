@@ -77,6 +77,18 @@ pc_install_gamescope "$1"
                 self.assertIn('/usr/lib/steamos-nvidia/gamescope/bin',
                               self.override.read_text())
 
+    def test_the_selected_artifact_runs_with_gbm_scanout_and_stock_never_sees_it(self):
+        """The 4K fix is a runtime switch, so selecting the binary alone does nothing.
+
+        Measured on 2026-10-09 on a 4K DisplayPort monitor: Valve's packaged gamescope
+        corrupts the picture when the resolution is raised to 3840x2160 in a running
+        session, and this project's build is clean through the same change only with
+        GAMESCOPE_NVIDIA_GBM_SCANOUT=1. The variable must therefore travel with the
+        selection, and must vanish with it when the artifact stands aside.
+        """
+        self.assertEqual(self.run_install('gamescope 3.16.23.6-1').returncode, 0)
+        self.assertIn('Environment=GAMESCOPE_NVIDIA_GBM_SCANOUT=1', self.override.read_text())
+
     def test_a_flag_the_artifact_does_not_accept_stands_aside_without_failing(self):
         # The one case where standing aside is honest. It is not an error: the install
         # continues on Valve's compositor and status.txt says so.
