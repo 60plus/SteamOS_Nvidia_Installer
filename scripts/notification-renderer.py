@@ -17,6 +17,12 @@ LEGACY_AFTER = b'l=s&&a,c=!0;return o?.IsVRGamepadUIOverlayWindow()'
 # Keep the asset size unchanged; ordinary Steam startup checks file sizes.
 # Full client verification or updates may still restore the original asset.
 AFTER = b'l=s&&a,c=!0         ;return o?.IsVRGamepadUIOverlayWindow()'
+# Steam Deck Stable build 1791918634 moved the Gamepad UI into sp.js.
+# The selector still chooses embedded toasts versus a separate BrowserView.
+SP_ASSET = 'sp.js'
+SP_ORIGINAL_SHA256 = '5a28c25041d07e69cf591a414519e0cf970b6884c1a0106659dcd9f1fb9586f9'
+SP_BEFORE = b'be=Tt&&Ct,it=(0,ke.wv)();return Lt?.IsVRGamepadUIOverlayWindow()'
+SP_AFTER = b'be=Tt&&Ct,it=!0         ;return Lt?.IsVRGamepadUIOverlayWindow()'
 
 
 def digest(data):
@@ -48,16 +54,26 @@ def replace(path, data, mode):
 
 def update(steam, state, action):
     """Never infer compatibility from a filename or a matching snippet alone."""
-    target = steam / 'steamui' / ASSET
-    if not target.exists():
-        return 'unsupported: verified Steam asset is absent'
-    data, mode = read_regular(target)
     profiles = [
         (ORIGINAL_SHA256, BEFORE, AFTER, LEGACY_AFTER),
         ('1da08ac81e2ad5c56e868bc7b18cd940d0e990a142fa26bc2445dd9ec7813c98',
          b've=Tt&&Lt,ht=(0,Ce.wv)();return Wt?.IsVRGamepadUIOverlayWindow()',
          b've=Tt&&Lt,ht=!0         ;return Wt?.IsVRGamepadUIOverlayWindow()', None),
     ]
+    # Older sp.js was just an entry point; newer clients embed the UI here.
+    # Never fall back to a stale chunk left behind by a client update when
+    # sp.js contains that UI. This marker only restricts selection: a complete
+    # original (or exactly reversible patched) hash is still required below.
+    target = steam / 'steamui' / SP_ASSET
+    sp_data = read_regular(target) if target.exists() or target.is_symlink() else None
+    if sp_data and b'IsVRGamepadUIOverlayWindow' in sp_data[0]:
+        data, mode = sp_data
+        profiles = [(SP_ORIGINAL_SHA256, SP_BEFORE, SP_AFTER, None)]
+    else:
+        target = steam / 'steamui' / ASSET
+        if not target.exists() and not target.is_symlink():
+            return 'unsupported: verified Steam asset is absent'
+        data, mode = read_regular(target)
     for expected, before, after, old_after in profiles:
         original = digest(data) == expected
         restored = data.replace(after, before) if data.count(after) == 1 else b''

@@ -554,10 +554,25 @@ assets (Stable build 1788652215 and Beta build 1789781627), the helper
 selects the client's existing embedded toast renderer instead of the separate
 notification BrowserView. It does not filter pixels or disable notifications.
 
+Installer 0.2.5 also supports Stable client build 1791918634 from the October 13,
+2026 Steam update. That client moved the notification selector from
+`chunk~2dcc5aaf7.js` into `sp.js`. Both older client profiles remain supported;
+updating the installer does not require updating or downgrading Steam. The helper
+chooses the asset used by the client and applies only its reviewed replacement.
+When `sp.js` contains the Gamepad UI, an unrecognized version is skipped even if
+a recognized old chunk remains on disk. This prevents patching an obsolete file
+after a client update. Each supported asset retains its own verified backup.
+
+The new profile passed apply, repeated apply and exact restore on a copy of the
+full client asset, and a controller notification was confirmed without the black
+border on SteamOS 3.8.28. Regression tests cover both older profiles, an already
+patched older client, transition between old and new layouts, and refusal of an
+unknown new client. These tests do not establish support for future Steam builds.
+
 A user service starts with either Steam launcher, in Game Mode and from the desktop
-alike, and waits up to 120 seconds for the main Steam browser process. It is applied
-again whenever Steam restarts, because a client verification can restore the original
-asset at any time. It accepts
+alike, and waits up to 120 seconds for the main Steam browser process. The workaround
+is checked again whenever either launcher service starts. An internal Steam client
+restart within the same launcher session may not rerun the service. It accepts
 only a complete SHA-256 hash from its list of reviewed JavaScript assets, verifies a single
 known replacement, saves the original under
 `~/.local/state/steamos-nvidia/notifications/`, then replaces the asset atomically.
