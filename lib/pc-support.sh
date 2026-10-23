@@ -832,6 +832,7 @@ pc_gamescope_expected_package() {
   case "$1" in
     2b79e07b3da1723c7e5c5f44f18de36c6cb78b9e) printf 'gamescope 3.16.23.4-1\n' ;;
     154f435a2c0026510545b7b7524d104bed253cb3) printf 'gamescope 3.16.23.6-1\n' ;;
+    e6674a98118ca7b098b98a3874b8f195ae1bf750) printf 'gamescope 3.17.0-1\n' ;;
     *) return 1 ;;
   esac
 }

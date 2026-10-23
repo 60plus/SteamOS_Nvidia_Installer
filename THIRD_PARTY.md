@@ -17,29 +17,22 @@ its dependencies retain their respective licenses; the installer license does
 not replace them. The build script fetches the pinned source and its submodules.
 
 The Gamescope artifact uses [Gamescope](https://github.com/ValveSoftware/gamescope)
-3.16.23.6, revision `154f435a2c0026510545b7b7524d104bed253cb3`, which is the tip of
-Valve's jupiter-3.8 branch and the package current stable SteamOS ships. Gamescope
-retains its MIT license; its dependencies retain their own licenses. Distribute the
-artifact's license files and source metadata with it.
+3.17.0, revision `e6674a98118ca7b098b98a3874b8f195ae1bf750`. Gamescope retains its
+MIT license; its dependencies retain their own licenses. Distribute the artifact's
+license files and source metadata with it.
 
-`patches/gamescope` holds four patches, and only the first carries a commit upstream
-has accepted. The capture correction backports Matthew Schwartz's upstream commit
-`ff6b924fd0634a51d0fb3755c56c01dca1daadc1`, retaining the author and source link.
-The backport adapts the screenshot context and dimension variable names to the
-stable source.
+The capture-color and sampled-texture fixes by Matthew Schwartz are now included
+in the pinned upstream source, as commits
+`ff6b924fd0634a51d0fb3755c56c01dca1daadc1` and
+`9851c6064cfc783678b27942c0b125f052c6c7fd`. The corresponding downstream patches
+have been removed.
 
-The sampled-texture correction adapts Matthew Schwartz's
-[Gamescope PR 2164](https://github.com/ValveSoftware/gamescope/pull/2164)
-to the stable shared capture pool. It adds the Vulkan sampled usage required by
-the RGB-to-NV12 conversion shader.
-
-The remaining two patches originate in this project and have no upstream author to
-credit. The alpha-composition correction refuses the hardware plane route for a
-layer that needs alpha blending on a display the kernel reports as `nvidia-drm`,
-which is what corrupted the Game Mode menus. The advertised-mode correction reuses
-Gamescope's own mode blocklist when the list of modes offered to Steam is built, so
-a mode the compositor will refuse to set is not offered in the first place. Both are
-submitted to the upstream project's terms and carry no third-party code.
+`patches/gamescope` contains five patches: Wayland scanner build compatibility;
+a revert of upstream commit `e383171ff1c0f7b5b37f05f2bb67f7c5282b087f`, associated
+with NVIDIA Big Picture corruption; NVIDIA alpha composition; advertised-mode
+filtering; and GBM scanout. Source references are retained in the patches.
+The build script records upstream revisions, dependency versions and patch hashes
+in `gamescope-build.json`.
 
 The optional Remote Play receiver artifact uses
 [nvidia-vaapi-driver](https://github.com/elFarto/nvidia-vaapi-driver), revision

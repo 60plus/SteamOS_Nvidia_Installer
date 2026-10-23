@@ -1,9 +1,9 @@
 diff --git a/src/Backends/DRMBackend.cpp b/src/Backends/DRMBackend.cpp
-index 714fb28..565db31 100644
+index 0d00f0d2..97ff8d78 100644
 --- a/src/Backends/DRMBackend.cpp
 +++ b/src/Backends/DRMBackend.cpp
-@@ -52,6 +52,10 @@
- #include "libdisplay-info/cta.h"
+@@ -55,6 +55,10 @@
+ #include "libdisplay-info/edid.h"
  #include "wlr_end.hpp"
  
 +#if HAVE_GBM
@@ -12,8 +12,8 @@ index 714fb28..565db31 100644
 +
  #include "gamescope-control-protocol.h"
  
- static constexpr bool k_bUseCursorPlane = false;
-@@ -113,6 +117,11 @@ struct drm_t {
+ extern int g_nPreferredOutputWidth;
+@@ -115,6 +119,11 @@ struct drm_t {
  	uint64_t cursor_width, cursor_height;
  	bool allow_modifiers;
  	struct wlr_drm_format_set formats;
@@ -25,7 +25,7 @@ index 714fb28..565db31 100644
  
  	std::vector< std::unique_ptr< gamescope::CDRMPlane > > planes;
  	std::vector< std::unique_ptr< gamescope::CDRMCRTC > > crtcs;
-@@ -1291,6 +1300,7 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
+@@ -1568,6 +1577,7 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
  		drmVersionPtr pVersion = drmGetVersion( drm->fd );
  		const char *pszDriver = ( pVersion && pVersion->name && *pVersion->name ) ? pVersion->name : nullptr;
  		const bool bNvidiaDisplay = pszDriver && !strcmp( pszDriver, "nvidia-drm" );
@@ -33,7 +33,7 @@ index 714fb28..565db31 100644
  		drm->bCompositeNvidiaAlphaLayers = bNvidiaDisplay && oRequested.value_or( true );
  
  		if ( !pszDriver )
-@@ -1312,6 +1322,22 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
+@@ -1589,6 +1599,22 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
  			drmFreeVersion( pVersion );
  	}
  
@@ -56,7 +56,7 @@ index 714fb28..565db31 100644
  	if (drmGetCap(drm->fd, DRM_CAP_CURSOR_WIDTH, &drm->cursor_width) != 0) {
  		drm->cursor_width = 64;
  	}
-@@ -1465,6 +1491,18 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
+@@ -1755,6 +1781,18 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
  
  	drm->needs_modeset = true;
  
@@ -75,7 +75,7 @@ index 714fb28..565db31 100644
  	return true;
  }
  
-@@ -1623,6 +1661,13 @@ void finish_drm(struct drm_t *drm)
+@@ -1913,6 +1951,13 @@ void finish_drm(struct drm_t *drm)
  	drm->crtcs.clear();
  	drm->connectors.clear();
  
@@ -87,9 +87,9 @@ index 714fb28..565db31 100644
 +	}
 +#endif
  
- 
- 	// We can't close the DRM FD here, it might still be in use by the
-@@ -3554,6 +3599,8 @@ namespace gamescope
+ 	// Signal the page-flip handler thread to exit and join it so it won't be
+ 	// using the DRM fd while we clean it up. Closing the pipe write end
+@@ -3971,6 +4016,8 @@ namespace gamescope
  
  			bool bNeedsFullComposite = false;
  			bNeedsFullComposite |= cv_composite_force;
@@ -98,7 +98,7 @@ index 714fb28..565db31 100644
  
  			// Refuse the plane path before a request is built, rather than building one
  			// and reading a failure back, so no atomic request is rolled back and no
-@@ -3882,6 +3929,73 @@ namespace gamescope
+@@ -4311,6 +4358,73 @@ namespace gamescope
  			return drm_fbid_from_dmabuf( &g_DRM, pDmaBuf );
  		}
  
@@ -173,7 +173,7 @@ index 714fb28..565db31 100644
  		{
  			return g_DRM.allow_modifiers;
 diff --git a/src/Backends/DeferredBackend.h b/src/Backends/DeferredBackend.h
-index 0f73466..44c13e2 100644
+index 2829fdfb..d5430424 100644
 --- a/src/Backends/DeferredBackend.h
 +++ b/src/Backends/DeferredBackend.h
 @@ -163,6 +163,20 @@ namespace gamescope
@@ -198,10 +198,10 @@ index 0f73466..44c13e2 100644
  		{
              return true;
 diff --git a/src/backend.h b/src/backend.h
-index 607c25d..4a9931e 100644
+index a1546c1d..4940dec4 100644
 --- a/src/backend.h
 +++ b/src/backend.h
-@@ -337,6 +337,17 @@ namespace gamescope
+@@ -341,6 +341,17 @@ namespace gamescope
          // Rc manages acquire/release of buffer to/from client while imported.
          virtual OwningRc<IBackendFb> ImportDmabufToBackend( wlr_dmabuf_attributes *pDmaBuf ) = 0;
  
@@ -220,7 +220,7 @@ index 607c25d..4a9931e 100644
          virtual std::span<const uint64_t> GetSupportedModifiers( uint32_t uDrmFormat ) const = 0;
  		inline bool SupportsFormat( uint32_t uDrmFormat ) const
 diff --git a/src/meson.build b/src/meson.build
-index 8512bf5..c9a25b3 100644
+index 498bca64..3c3911f2 100644
 --- a/src/meson.build
 +++ b/src/meson.build
 @@ -11,6 +11,7 @@ dep_xmu = dependency('xmu')
@@ -231,7 +231,7 @@ index 8512bf5..c9a25b3 100644
  eis_dep = dependency('libeis-1.0', required : get_option('input_emulation'))
  
  wayland_server = dependency('wayland-server', version: '>=1.21')
-@@ -145,6 +146,7 @@ if sdl2_dep.found()
+@@ -151,6 +152,7 @@ if sdl2_dep.found()
  endif
  
  gamescope_cpp_args += '-DHAVE_DRM=@0@'.format(drm_dep.found().to_int())
@@ -239,7 +239,7 @@ index 8512bf5..c9a25b3 100644
  gamescope_cpp_args += '-DHAVE_SDL2=@0@'.format(sdl2_dep.found().to_int())
  gamescope_cpp_args += '-DHAVE_AVIF=@0@'.format(avif_dep.found().to_int())
  gamescope_cpp_args += '-DHAVE_LIBCAP=@0@'.format(cap_dep.found().to_int())
-@@ -192,7 +194,7 @@ gamescope_version = configure_file(
+@@ -198,7 +200,7 @@ gamescope_version = configure_file(
      include_directories : [reshade_include, sol2_include],
      dependencies: [
        dep_wayland, dep_x11, dep_xdamage, dep_xcomposite, dep_xrender, dep_xext, dep_xfixes,
@@ -249,10 +249,10 @@ index 8512bf5..c9a25b3 100644
        vulkan_dep, liftoff_dep, dep_xtst, dep_xmu, cap_dep, epoll_dep, pipewire_dep, librt_dep,
        stb_dep, displayinfo_dep, openvr_dep, dep_xcursor, avif_dep, dep_xi,
 diff --git a/src/rendervulkan.cpp b/src/rendervulkan.cpp
-index 9ffa126..80a434f 100644
+index 77134f29..ac8ab22e 100644
 --- a/src/rendervulkan.cpp
 +++ b/src/rendervulkan.cpp
-@@ -2036,7 +2036,7 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
+@@ -2142,7 +2142,7 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
  		usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
  	}
  
@@ -261,7 +261,7 @@ index 9ffa126..80a434f 100644
  	{
  		flags.bExportable = true;
  	}
-@@ -2251,6 +2251,7 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
+@@ -2392,6 +2392,7 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
  		vk_errorf( res, "vkCreateImage failed" );
  		return false;
  	}
@@ -269,7 +269,7 @@ index 9ffa126..80a434f 100644
  	
  	VkMemoryRequirements memRequirements;
  	g_device.vk.GetImageMemoryRequirements(g_device.device(), m_vkImage, &memRequirements);
-@@ -2314,6 +2315,31 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
+@@ -2455,6 +2456,31 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
  				return false;
  			}
  
@@ -301,16 +301,7 @@ index 9ffa126..80a434f 100644
  			// Memory already provided by pDMA
  			importMemoryInfo = {
  					.sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
-@@ -2326,6 +2352,8 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
- 		res = g_device.vk.AllocateMemory( g_device.device(), &allocInfo, nullptr, &memoryHandle );
- 		if ( res != VK_SUCCESS )
- 		{
-+			if ( pDMA != nullptr )
-+				close( importMemoryInfo.fd );
- 			vk_errorf( res, "vkAllocateMemory failed" );
- 			return false;
- 		}
-@@ -2472,13 +2500,30 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
+@@ -2619,13 +2645,30 @@ bool CVulkanTexture::BInit( uint32_t width, uint32_t height, uint32_t depth, uin
  
  		m_dmabuf = dmabuf;
  	}
@@ -342,7 +333,7 @@ index 9ffa126..80a434f 100644
  
  	if (!bHasAlpha )
  	{
-@@ -2692,14 +2737,15 @@ CVulkanTexture::~CVulkanTexture( void )
+@@ -2839,14 +2882,15 @@ CVulkanTexture::~CVulkanTexture( void )
  	if ( m_pBackendFb != nullptr )
  		m_pBackendFb = nullptr;
  
@@ -364,7 +355,7 @@ index 9ffa126..80a434f 100644
  		g_device.vk.FreeMemory( g_device.device(), m_vkImageMemory, nullptr );
  		m_vkImageMemory = VK_NULL_HANDLE;
  	}
-@@ -3266,6 +3312,63 @@ bool vulkan_remake_swapchain( void )
+@@ -3428,6 +3472,63 @@ bool vulkan_remake_swapchain( void )
  	return bRet;
  }
  
@@ -428,13 +419,13 @@ index 9ffa126..80a434f 100644
  static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
  {
  	CVulkanTexture::createFlags outputImageflags;
-@@ -3287,6 +3390,23 @@ static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
- 
- 	uint32_t uDRMFormat = pOutput->uOutputFormat;
+@@ -3455,6 +3556,23 @@ static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
+ 	if ( g_uOutputRotation & 1u )
+ 		std::swap( uOutputWidth, uOutputHeight );
  
 +	if ( GetBackend()->UsesBackendAllocatedScanout() )
 +	{
-+		if ( !vulkan_make_backend_output_images( pOutput, outputImageflags, g_nOutputWidth, g_nOutputHeight ) )
++		if ( !vulkan_make_backend_output_images( pOutput, outputImageflags, uOutputWidth, uOutputHeight ) )
 +		{
 +			vk_log.errorf( "GBM scanout experiment failed to create output buffers; no Vulkan fallback" );
 +			for ( auto &pImage : pOutput->outputImages )
@@ -445,30 +436,30 @@ index 9ffa126..80a434f 100644
 +		}
 +		pOutput->temporaryHackyBlankImage = vulkan_create_debug_blank_texture();
 +		vk_log.infof( "GBM scanout output active: %dx%d, format=0x%08x, buffers=%zu, full composition",
-+			g_nOutputWidth, g_nOutputHeight, uDRMFormat, pOutput->outputImages.size() );
++			uOutputWidth, uOutputHeight, uDRMFormat, pOutput->outputImages.size() );
 +		return true;
 +	}
 +
  	pOutput->outputImages[0] = new CVulkanTexture();
- 	bool bSuccess = pOutput->outputImages[0]->BInit( g_nOutputWidth, g_nOutputHeight, 1u, uDRMFormat, outputImageflags );
+ 	bool bSuccess = pOutput->outputImages[0]->BInit( uOutputWidth, uOutputHeight, 1u, uDRMFormat, outputImageflags );
  	if ( bSuccess != true )
 diff --git a/src/rendervulkan.hpp b/src/rendervulkan.hpp
-index 5a871fa..34e7b1b 100644
+index 3566b3fe..bb02e67c 100644
 --- a/src/rendervulkan.hpp
 +++ b/src/rendervulkan.hpp
-@@ -210,6 +210,7 @@ private:
- 	bool m_bInitialized = false;
+@@ -217,6 +217,7 @@ private:
  	bool m_bExternal = false;
+ 	bool m_bTransferSrc = false;
  	bool m_bOutputImage = false;
 +	bool m_bOwnsImage = false;
  
  	uint32_t m_drmFormat = DRM_FORMAT_INVALID;
  
-@@ -727,6 +728,7 @@ static inline uint32_t div_roundup(uint32_t x, uint32_t y)
+@@ -795,6 +796,7 @@ static inline uint32_t div_roundup(uint32_t x, uint32_t y)
  	VK_FUNC(GetImageMemoryRequirements) \
  	VK_FUNC(GetImageSubresourceLayout) \
  	VK_FUNC(GetMemoryFdKHR) \
 +	VK_FUNC(GetMemoryFdPropertiesKHR) \
+ 	VK_FUNC(GetQueryPoolResults) \
  	VK_FUNC(GetSemaphoreCounterValue) \
  	VK_FUNC(GetSwapchainImagesKHR) \
- 	VK_FUNC(MapMemory) \

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the actual patched AVIF pixel loop on asymmetric RGB test data.
+"""Exercise the actual upstream AVIF pixel loop on asymmetric RGB test data.
 
 Usage: python3 tools/test-gamescope-capture.py /path/to/patched/gamescope/source
 Requires a C++ compiler. Does not require a display or an NVIDIA GPU.
@@ -14,7 +14,7 @@ source = (Path(sys.argv[1]) / 'src/steamcompmgr.cpp').read_text()
 start = source.index('const uint32_t uRedShift =')
 end = source.index('assert( HAVE_AVIF );', start)
 loop = source[start:end]
-# Compile the pixel conversion directly from the backported source, including
+# Compile the pixel conversion directly from the pinned upstream source, including
 # row-pitch addressing. Test both layouts, alpha bits and padded rows.
 program = r'''
 #include <cstdint>
@@ -26,10 +26,10 @@ struct Texture { int layout; int format(){return layout;} unsigned rowPitch(){re
 int main(){
  for(int fmt: {0,1}) {
   Texture tex{fmt}; auto *pScreenshotTexture=&tex;
-  constexpr uint32_t g_nOutputWidth=3, g_nOutputHeight=2, kCompCnt=3;
+  constexpr uint32_t width=3, height=2, kCompCnt=3;
   std::vector<uint32_t> pixels(16,0xdeadbeef);
   auto *mappedData=reinterpret_cast<uint8_t*>(pixels.data());
-  std::vector<uint16_t> imageData(g_nOutputWidth*g_nOutputHeight*kCompCnt);
+  std::vector<uint16_t> imageData(width*height*kCompCnt);
   const uint16_t expected[6][3]={{1023,0,0},{0,1023,0},{0,0,1023},{17,511,999},{0,0,0},{1023,1023,1023}};
   for(unsigned i=0;i<6;i++) {
    auto *v=expected[i];

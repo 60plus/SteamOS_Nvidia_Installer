@@ -1,0 +1,21 @@
+Let protocol/meson.build find wayland-scanner when wayland is a subproject.
+
+get_variable(pkgconfig: ...) only reads a pkg-config variable, so it fails when
+wayland-scanner comes from the wayland subproject, which provides it as an internal
+dependency variable. The positional form reads either, as wlroots already does.
+This project builds wayland 1.24 as a subproject because wlroots 0.20 needs it and
+the SteamOS 3.8 build root has 1.23.1. No runtime change.
+
+diff --git a/protocol/meson.build b/protocol/meson.build
+index c9289f85..5def9d97 100644
+--- a/protocol/meson.build
++++ b/protocol/meson.build
+@@ -1,7 +1,7 @@
+ fs = import('fs')
+ 
+ wayland_scanner_dep = dependency('wayland-scanner', native: true)
+-wayland_scanner_path = wayland_scanner_dep.get_variable(pkgconfig: 'wayland_scanner')
++wayland_scanner_path = wayland_scanner_dep.get_variable('wayland_scanner')
+ wayland_scanner = find_program(wayland_scanner_path, native: true)
+ 
+ wayland_protos = dependency('wayland-protocols',

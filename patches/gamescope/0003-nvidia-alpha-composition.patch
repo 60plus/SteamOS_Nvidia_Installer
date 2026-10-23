@@ -1,6 +1,8 @@
+diff --git a/src/Backends/DRMBackend.cpp b/src/Backends/DRMBackend.cpp
+index c9034b79..ca2b5474 100644
 --- a/src/Backends/DRMBackend.cpp
 +++ b/src/Backends/DRMBackend.cpp
-@@ -101,6 +101,10 @@ namespace gamescope
+@@ -103,6 +103,10 @@ namespace gamescope
  
  struct drm_t {
  	bool bUseLiftoff;
@@ -11,7 +13,7 @@
  
  	int fd = -1;
  
-@@ -1257,6 +1261,50 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
+@@ -1534,6 +1538,50 @@ bool init_drm(struct drm_t *drm, int width, int height, int refresh)
  		return false;
  	}
  
@@ -62,7 +64,7 @@
  	if (drmGetCap(drm->fd, DRM_CAP_CURSOR_WIDTH, &drm->cursor_width) != 0) {
  		drm->cursor_width = 64;
  	}
-@@ -3495,6 +3543,35 @@ namespace gamescope
+@@ -3912,6 +3960,35 @@ namespace gamescope
  
  			bool bNeedsFullComposite = false;
  			bNeedsFullComposite |= cv_composite_force;
@@ -72,11 +74,11 @@
 +			// negative liftoff cache entry is created by a policy choice. A single input
 +			// keeps its ordinary eligibility.
 +			bool bCompositeAlphaLayers = false;
-+			if ( g_DRM.bCompositeNvidiaAlphaLayers && pFrameInfo->layerCount > 1 )
++			if ( g_DRM.bCompositeNvidiaAlphaLayers && pFrameInfo->layers.count() > 1 )
 +			{
-+				for ( int i = 0; i < pFrameInfo->layerCount; ++i )
++				for ( int i = 0; i < pFrameInfo->layers.count(); ++i )
 +				{
-+					const auto &layer = pFrameInfo->layers[ i ];
++					const auto &layer = pFrameInfo->layers.get( i );
 +					if ( layer.zpos != g_zposBase &&
 +						 ( layer.opacity < 1.0f || ( layer.hasAlpha() && layer.eAlphaBlendingMode != ALPHA_BLENDING_MODE_NONE ) ) )
 +					{
@@ -93,7 +95,7 @@
 +				drm_log.infof( "NVIDIA alpha layer composition on '%s': %s with %d inputs",
 +					g_DRM.pConnector ? g_DRM.pConnector->GetName() : "no connector",
 +					bCompositeAlphaLayers ? "compositing" : "not needed",
-+					pFrameInfo->layerCount );
++					pFrameInfo->layers.count() );
 +			}
  			bNeedsFullComposite |= bWasFirstFrame;
  			bNeedsFullComposite |= pFrameInfo->useFSRLayer0;

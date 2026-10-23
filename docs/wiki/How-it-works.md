@@ -270,15 +270,16 @@ installing an unusable overlay.
 ## Capture-color correction
 
 An image built with all components in the [build guide](Build-the-USB-image.md#complete-build)
-includes a separately maintained Gamescope build, based on version 3.16.23.6. It carries four
-corrections: two capture fixes adapted from upstream work, a correction this project made for the
-corrupted Game Mode menus described below, and a filter that stops Steam being offered display
-modes Gamescope will reject. The two capture fixes are present in upstream Gamescope 3.16.30. The
-menu correction and the advertised mode filter are not in that version, so a system using it instead
-of this build does not have them. The version checked is
-[upstream Gamescope 3.16.30](https://github.com/ValveSoftware/gamescope/releases/tag/3.16.30). Outgoing Remote Play has passed hardware
-testing; screenshot formats still need separate acceptance. Custom builders supply the artifact
-with `--gamescope-dir`.
+includes a separately maintained Gamescope build, based on version 3.17.0 in installer
+0.2.7. The capture-color and sampled-texture fixes are now part of the upstream source,
+so their two downstream patches have been removed. The build retains this project's
+NVIDIA menu composition, advertised-mode filtering and GBM scanout corrections. It also
+adapts the Wayland scanner build and reverts a shared-output allocation change associated
+with NVIDIA Big Picture corruption. The system Gamescope WSI layer remains in use.
+Streaming in both directions, notifications, the Quick Access Menu over games, HDR,
+VRR and 4K/1440p transitions passed testing on the project's NVIDIA PC, including after
+an update to SteamOS 3.9.5. Screenshot formats still need separate acceptance.
+Custom builders supply the artifact with `--gamescope-dir`.
 
 **The Gamescope pin is temporary and reviewed manually.** With each SteamOS
 update, we check what Valve has fixed in upstream Gamescope. When we adopt
@@ -289,13 +290,13 @@ manual maintenance decisions, not automatic changes made by the updater. Once
 the Gamescope shipped by SteamOS works without our corrections, we will retire
 the separate build and use Valve's compositor.
 
-The capture correction is backported to Gamescope version 3.16.23.6. It checks whether the Vulkan device supports the 10-bit RGB
+The upstream capture correction checks whether the Vulkan device supports the 10-bit RGB
 format required for capture. When that format is unavailable, it uses the
 supported BGR layout and decodes screenshot channels in the matching order.
 The shared capture pool also requests sampled-image usage: the RGB-to-NV12
 shader reads these textures. Missing that usage can produce black video even
 when the local game renders normally.
-This backport targets swapped red and blue in PipeWire capture, including Remote
+This correction targets swapped red and blue in PipeWire capture, including Remote
 Play, and AVIF screenshots. It does not change the monitor mode, HDR defaults,
 kernel, or NVIDIA driver, and is not a fix for HDMI HDR failures. The same build
 also carries this project's own fix for corrupted Game Mode menus on NVIDIA,

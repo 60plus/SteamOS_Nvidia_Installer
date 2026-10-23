@@ -1,6 +1,8 @@
+diff --git a/src/Backends/DRMBackend.cpp b/src/Backends/DRMBackend.cpp
+index 60b50635..3bea1918 100644
 --- a/src/Backends/DRMBackend.cpp
 +++ b/src/Backends/DRMBackend.cpp
-@@ -943,19 +943,26 @@
+@@ -1009,19 +1009,26 @@ static mode_blocklist_entry g_badModes[] =
  	{ 4096, 2160, 0 },
  };
  
@@ -35,7 +37,7 @@
  			continue;
  
  		if (hdisplay != 0 && hdisplay != mode->hdisplay)
-@@ -2207,6 +2214,10 @@
+@@ -2511,6 +2518,10 @@ namespace gamescope
  		for ( int i = 0; i < m_pConnector->count_modes; i++ )
  		{
  			drmModeModeInfo *pMode = &m_pConnector->modes[i];

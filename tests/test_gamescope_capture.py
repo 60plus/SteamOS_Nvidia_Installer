@@ -168,6 +168,21 @@ pc_install_gamescope "$1"
         self.assertEqual(self.run_install('gamescope 3.16.23.6-1').returncode, 0)
         self.assertIn('/usr/lib/steamos-nvidia/gamescope/bin', self.override.read_text())
 
+    def test_317_artifact_uses_the_same_runtime_guards_on_the_existing_os(self):
+        self.set_artifact_commit('e6674a98118ca7b098b98a3874b8f195ae1bf750')
+        self.assertEqual(self.run_install('gamescope 3.16.23.6-1').returncode, 0)
+        self.assertIn('GAMESCOPE_NVIDIA_GBM_SCANOUT=1', self.override.read_text())
+        self.assertEqual(self.probe_arguments(), ['--steam', '--help'])
+        # A newly allowed source must still stand aside on an unsupported session.
+        self.assertEqual(self.run_install(probe='1').returncode, 0)
+        self.assertFalse(self.override.exists())
+        self.assertTrue((self.base / 'status.txt').read_text().startswith('stock'))
+        self.assertNotEqual(self.run_install(loader='1').returncode, 0)
+        self.assertFalse(self.override.exists())
+        (self.base / 'bin/gamescope').write_bytes(b'corrupt')
+        self.assertNotEqual(self.run_install().returncode, 0)
+        self.assertFalse(self.override.exists())
+
     def test_an_unknown_artifact_is_refused_rather_than_trusted(self):
         self.set_artifact_commit('0' * 40)
         result = self.run_install()

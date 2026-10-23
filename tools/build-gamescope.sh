@@ -20,9 +20,9 @@ chroot "$root" pacman -S --noconfirm gcc glibc linux-api-headers git meson ninja
   aom rav1e libdisplay-info libliftoff glm benchmark catch2 libcap hwdata libpng \
   lcms2 util-linux-libs xorg-xwayland sdl2-compat systemd-libs dbus libffi expat zlib \
   mesa
-# Tag 3.16.23.6, the tip of Valve's jupiter-3.8 branch and the package current
-# stable SteamOS ships. All five patches in patches/gamescope apply to it unchanged.
-commit=154f435a2c0026510545b7b7524d104bed253cb3
+# Gamescope 3.17.0, validated with the NVIDIA integration in installer 0.2.7.
+# Keep the SteamOS 3.8 build-root ABI for compatibility with existing installations.
+commit=e6674a98118ca7b098b98a3874b8f195ae1bf750
 work=$(chroot "$root" mktemp -d /tmp/gamescope-build.XXXXXX)
 printf 'Build source directory: %s%s\n' "$root" "$work"
 chroot "$root" git -C "$work" init -q
@@ -30,12 +30,46 @@ chroot "$root" git -C "$work" remote add origin https://github.com/ValveSoftware
 chroot "$root" git -C "$work" fetch --depth 1 origin "$commit"
 chroot "$root" git -C "$work" checkout --detach "$commit"
 chroot "$root" git -C "$work" submodule update --init --recursive
+# wlroots 0.20 needs wayland-server >= 1.24 and wayland-protocols >= 1.47, and the SteamOS
+# 3.8 root carries 1.23.1 and 1.45. Build both from pinned upstream tags as subprojects, with
+# libwayland linked statically into Gamescope, so the binary does not depend on a wayland
+# newer than the system it runs on. Every user of these dependencies is forced onto the
+# subproject, or the main project and wlroots would disagree about which wayland-server it is.
+cat > "$root$work/subprojects/wayland.wrap" <<'WRAP'
+[wrap-git]
+url = https://gitlab.freedesktop.org/wayland/wayland.git
+revision = 736d12ac67c20c60dc406dc49bb06be878501f86
+depth = 1
+
+[provide]
+dependency_names = wayland-server, wayland-client, wayland-cursor, wayland-egl, wayland-scanner
+program_names = wayland-scanner
+WRAP
+cat > "$root$work/subprojects/wayland-protocols.wrap" <<'WRAP'
+[wrap-git]
+url = https://gitlab.freedesktop.org/wayland/wayland-protocols.git
+revision = 88223018d1b578d0d8869866da66d9608e05f928
+depth = 1
+
+[provide]
+dependency_names = wayland-protocols
+WRAP
 for patch in "$repo"/patches/gamescope/*.patch; do
   cp "$patch" "$root$work/$(basename "$patch")"
   chroot "$root" git -C "$work" apply --check "$work/$(basename "$patch")"
   chroot "$root" git -C "$work" apply "$work/$(basename "$patch")"
 done
-chroot "$root" meson setup "$work/build" "$work" --buildtype=release --prefix=/usr
+# The installed integration replaces the compositor binary only. Retain the system
+# WSI layer; the 3.17 layer needs newer Vulkan headers and is outside this candidate.
+chroot "$root" meson setup "$work/build" "$work" --buildtype=release --prefix=/usr \
+  --force-fallback-for=libliftoff,vkroots,wayland-server,wayland-client,wayland-cursor,wayland-egl,wayland-scanner,wayland-protocols \
+  -Denable_gamescope_wsi_layer=false \
+  -Dwayland:default_library=static -Dwayland:tests=false -Dwayland:documentation=false \
+  -Dwayland:dtd_validation=false -Dwayland-protocols:tests=false
+[[ $(chroot "$root" git -C "$work/subprojects/wayland" rev-parse HEAD) == 736d12ac67c20c60dc406dc49bb06be878501f86 ]] || {
+  printf 'wayland subproject is not the pinned 1.24.0 commit\n' >&2; exit 1; }
+[[ $(chroot "$root" git -C "$work/subprojects/wayland-protocols" rev-parse HEAD) == 88223018d1b578d0d8869866da66d9608e05f928 ]] || {
+  printf 'wayland-protocols subproject is not the pinned 1.47 commit\n' >&2; exit 1; }
 # The GBM scanout path in 0005 is the 4K fix, and its dependency is declared optional
 # upstream style, so a root without the GBM headers still builds, passes every test
 # below and produces a binary with the path compiled out. Nothing would say so. Refuse
@@ -50,7 +84,7 @@ cp "$repo/tools/test-gamescope-capture.py" "$root$work/test-capture.py"
 chroot "$root" python3 "$work/test-capture.py" "$work"
 chroot "$root" /usr/lib/ld-linux-x86-64.so.2 --list "$work/build/src/gamescope" >/dev/null
 chroot "$root" "$work/build/src/gamescope" --version
-chroot "$root" env DESTDIR="$work/stage" meson install -C "$work/build" --no-rebuild
+chroot "$root" env DESTDIR="$work/stage" meson install -C "$work/build" --no-rebuild --skip-subprojects
 mkdir -p "$out"
 cp -a "$root$work/stage" "$out/root"
 cp "$root$work/LICENSE" "$out/Gamescope-LICENSE"
@@ -66,8 +100,15 @@ for p in source.rglob('*'):
         shutil.copyfile(p,dest)
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 metadata={'source':'https://github.com/ValveSoftware/gamescope','commit':commit,
-'upstream_fix':'ff6b924fd0634a51d0fb3755c56c01dca1daadc1','base_version':'3.16.23.6',
+'upstream_fix':'ff6b924fd0634a51d0fb3755c56c01dca1daadc1','base_version':'3.17.0',
 'status':'experimental; hardware acceptance required',
+'upstream_tag':'3.17.0',
+'disabled_components':['gamescope_wsi_layer'],
+'upstream_tag_object':'f6acb89e8d54ea3a94f590c8c249cef4a697fdc3',
+'reverted_upstream':['e383171ff1c0f7b5b37f05f2bb67f7c5282b087f'],
+'subprojects_pinned':{'wayland':'1.24.0 736d12ac67c20c60dc406dc49bb06be878501f86',
+'wayland-protocols':'1.47 88223018d1b578d0d8869866da66d9608e05f928'},
+'upstream_capture_fixes':['ff6b924fd0634a51d0fb3755c56c01dca1daadc1', '9851c6064cfc783678b27942c0b125f052c6c7fd'],
 'build_packages':subprocess.check_output(['chroot',str(root),'pacman','-Q'],text=True).splitlines(),
 'submodules':subprocess.check_output(['chroot',str(root),'git','-C',sys.argv[5],'submodule','status','--recursive'],text=True).splitlines(),
 'build_os_release':(root/'etc/os-release').read_text(),
