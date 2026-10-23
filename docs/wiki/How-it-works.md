@@ -338,7 +338,7 @@ where the delivered build does not accept the session's flags keeps Valve's buil
 include the selected status and session environment. The shipped-file checksum
 manifest covers the capture binary, provenance and licenses. Generated status
 and the service selection drop-in are excluded because they change
-when an OS update activates the backport or returns to stock. Physical capture tests are
+when an OS update activates this project's build or returns to stock. Physical capture tests are
 still required before treating the correction as verified on a particular GPU.
 
 ## Game Mode menu corruption on NVIDIA

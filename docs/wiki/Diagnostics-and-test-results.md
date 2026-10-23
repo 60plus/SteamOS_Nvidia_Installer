@@ -176,6 +176,11 @@ corrected Game Mode menu behaviour on NVIDIA is part of this project's build, so
 choice, though; which build actually ran is shown by the section described next,
 when the report is taken while Game Mode is running.
 
+The `capture-backport` label is a historical status name, retained for compatibility.
+Installer 0.2.7 uses Gamescope 3.17.0, with the capture fixes already upstream; that label
+does not identify the old 3.16-based build. The system package version in brackets is
+also distinct from the project compositor's version.
+
 You can read the same line directly:
 
 ```bash

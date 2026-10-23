@@ -272,14 +272,15 @@ enables main or establishes compatibility with every future experimental build.
 A Preview installation can run this project's Gamescope build. The selection does not look at the
 SteamOS release or at the version of the Gamescope package the system ships: the artifact itself is
 asked whether it accepts the flags the Game Mode session will pass it, and it is used when it does.
-On SteamOS 3.9.2 Preview, beside Valve's gamescope 3.16.30-2, this project's build was selected and
-ran Game Mode correctly.
-The capture color correction is a backport of a change Valve's newer Gamescope already contains,
-so Remote Play colors from this machine are unaffected. What is not in Valve's build is this
-project's own fix for the corrupted Game Mode menus, so on Preview that fix is present only while
-this project's build is the one selected. Nothing on screen says which one it is. The diagnostic
-report names the Gamescope selection, and that is the line to read on Preview as anywhere else.
-Only the one Preview release measured above has been tested on the 3.9 line.
+An earlier build was verified on SteamOS 3.9.2 Preview. Installer 0.2.7, using Gamescope
+3.17.0, was also verified after a SteamOS update to 3.9.5: the installed integration and
+Gamescope were preserved, and the owner confirmed notifications, menus over games, streaming
+in both directions, HDR, VRR and 4K/1440p transitions. This is evidence from the project's
+NVIDIA PC, not a guarantee for every future Beta or Preview update.
+
+Gamescope 3.17.0 contains the capture-color and sampled-texture fixes upstream. This project's
+remaining NVIDIA corrections still require its build to be selected. The diagnostic report
+names the recorded selection and the executable actually running; check both after an update.
 
 ## Building the corrected Gamescope
 
@@ -288,13 +289,19 @@ Gamescope, receiver and NVENC artifacts described below. These sections explain 
 that build. The options are optional for custom builders; users of that image do not need to build
 or enable the fixes themselves.
 
-The artifact carries two corrections. The first fixes the colors that a Remote
-Play host and a screenshot capture produce on an NVIDIA GPU. The second stops
-Gamescope handing a layer that needs alpha blending to a hardware plane on an
-NVIDIA display, which is what corrupted the Game Mode menus. The second
-correction switches itself on only for a display the kernel reports as
-`nvidia-drm`, and `GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=0` turns it off again if you
-need to compare.
+Installer 0.2.7 pins Gamescope 3.17.0. Its capture-color and sampled-texture fixes
+are now part of the upstream source, so the two corresponding project patches have
+been removed. Five patches remain: Wayland scanner build compatibility, a revert of
+an upstream shared-output allocation change associated with NVIDIA Big Picture
+corruption, NVIDIA alpha composition, advertised-mode filtering, and GBM scanout.
+The build uses the system Gamescope WSI layer.
+
+The alpha-composition correction stops a layer that needs blending from being sent
+to a hardware plane on an NVIDIA display. It applies only to a display the kernel
+reports as `nvidia-drm`; `GAMESCOPE_NVIDIA_COMPOSITE_ALPHA=0` turns it off for comparison.
+See [How it works](How-it-works.md#capture-color-correction) for the current patch policy
+and [third-party components](https://github.com/60plus/SteamOS_Nvidia_Installer/blob/main/THIRD_PARTY.md)
+for source revisions and attribution.
 
 Use a disposable stable SteamOS build root with `/proc`, `/dev`, `/sys` and DNS
 available. The tool reinstalls build dependencies there because recovery images
