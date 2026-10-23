@@ -47,13 +47,57 @@ class TheConfirmationWindowStaysOnTheScreen(unittest.TestCase):
         self.assertIn('Line 1 of the release notes.', short)
         self.assertNotIn('Line 94 of the release notes.', short)
 
-    def test_the_real_release_notes_fit(self):
-        notes = (Path(__file__).parents[1] / '.verify-work/release-notes-016.md')
-        if not notes.exists():
-            self.skipTest('release notes are workshop only')
-        short = self.ui.summarise(notes.read_text(encoding='utf-8'))
+    def test_notes_with_no_short_first_line_still_say_something(self):
+        """A paragraph is a legal set of notes, and it produced an empty window.
+
+        Nothing fits when the first line alone is over the character budget, so
+        the window showed the marker and not one word of the notes. The two
+        bounds below were already asserted elsewhere and both passed on that
+        empty window, because neither of them asks whether anything was said.
+        """
+        notes = 'Gamescope was rebuilt against the 3.16.30 tag. ' * 40
+        short = self.ui.summarise(notes)
         self.assertLessEqual(len(short.splitlines()), 17)
         self.assertLess(len(short), 1100)
+        self.assertIn('Gamescope was rebuilt', short)
+        self.assertIn('release page', short)
+
+    def test_the_count_of_what_is_missing_is_not_invented(self):
+        notes = (('A' * 950) + chr(10) +
+                 (chr(10)).join('Line %d.' % n for n in range(4)))
+        short = self.ui.summarise(notes)
+        self.assertIn('4 more lines', short)
+        self.assertIn('AAA', short)
+
+    def test_one_long_line_on_its_own_does_not_claim_lines_are_missing(self):
+        short = self.ui.summarise('B' * 950)
+        self.assertNotIn('0 more', short)
+        self.assertIn('Shortened', short)
+        self.assertIn('BBB', short)
+
+    def test_every_set_of_notes_this_project_has_shipped_fits(self):
+        """Was pinned to the 0.1.6 file by name, so it froze four releases ago.
+
+        The workshop holds the notes signed into releases under two naming
+        conventions: release-*notes*.md beside the work folders, and, for the
+        later releases, a release-notes.md inside a release-* folder. Each one is a real
+        sample of what this window has to render. There is no workshop in the
+        public tree, so this skips there and the tests above carry the guard
+        instead.
+        """
+        workshop = Path(__file__).parents[1] / '.verify-work'
+        found = sorted(set(workshop.glob('release-*notes*.md'))
+                       | set(workshop.glob('release-*/release-notes.md')))
+        if not found:
+            self.skipTest('release notes are workshop only')
+        for notes in found:
+            with self.subTest(notes=str(notes.relative_to(workshop))):
+                short = self.ui.summarise(notes.read_text(encoding='utf-8'))
+                self.assertLessEqual(len(short.splitlines()), 17)
+                self.assertLess(len(short), 1100)
+                self.assertTrue(short.strip(), 'the window would be empty')
+                self.assertNotEqual(short.strip()[0], '[',
+                                    'the marker was shown with no notes')
 
 
 class SteamosCompatibilityIsRecordedNotEnforced(unittest.TestCase):

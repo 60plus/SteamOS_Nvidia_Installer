@@ -10,8 +10,9 @@ Run this in Desktop Mode as the normal desktop user:
 steamos-nvidia-diagnostics > ~/steamos-nvidia-report.txt
 ```
 
-The command reads system information and saves it locally. It does not change
-settings or upload the report. Running it as the desktop user preserves useful
+The command reads system information and prints the report; the `>` in the
+command above saves it to that file. It does not change settings or upload the
+report. Running it as the desktop user preserves useful
 session and audio information. Missing tools or inaccessible logs are listed.
 
 For an update failure, also save:
@@ -165,12 +166,15 @@ service definitions are included to help spot local overrides.
 
 ## Which Gamescope is in use
 
-The report has a section named `Experimental Gamescope selection`. It reads
-`capture-backport` when this project's own Gamescope build is in use, or `stock`
-when the SteamOS build is in use, followed in brackets by the Gamescope package
+The report has a section named `Gamescope selection recorded for this system (not
+necessarily what is running)`. It reads `capture-backport` when this project's own
+Gamescope build was selected for Game Mode, or `stock` when the SteamOS build was,
+followed in brackets by the Gamescope package
 the system has installed, or `unknown` when that could not be read. The
 corrected Game Mode menu behaviour on NVIDIA is part of this project's build, so
-a report that reads `stock` explains straight away why menus still look wrong.
+`stock` is the first thing to look for when menus still look wrong. It records a
+choice, though; which build actually ran is shown by the section described next,
+when the report is taken while Game Mode is running.
 
 You can read the same line directly:
 
@@ -178,8 +182,11 @@ You can read the same line directly:
 cat /usr/lib/steamos-nvidia/gamescope/status.txt
 ```
 
-The next section, `Game Mode executable search path`, shows whether the session
-was pointed at this project's build. It also shows
+Two more sections follow. `Gamescope build actually running` names the program
+file of any Gamescope that is running. In a normal Desktop Mode session no
+Gamescope process is expected unless you started one yourself, so there it
+usually says that none was found. `Game Mode executable search path` shows
+whether the session was pointed at this project's build. It also shows
 `GAMESCOPE_NVIDIA_COMPOSITE_ALPHA` when the menu correction has been turned off
 in a service override.
 

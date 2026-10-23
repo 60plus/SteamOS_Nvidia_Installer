@@ -274,6 +274,15 @@ class Support(unittest.TestCase):
                          "so the workaround lapses on the next Steam client update while the "
                          "unit still reports success. Measured on hardware 2026-10-09")
         self.assertIn("Type=oneshot", worker)
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            'notification_deadline', ROOT / 'scripts/notification-renderer.py')
+        notification = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(notification)
+        config = configparser.ConfigParser()
+        config.read_string(worker)
+        self.assertGreaterEqual(int(config['Service']['TimeoutStartSec']),
+                                notification.STARTUP_WAIT_SECONDS + 60)
 
     def test_missing_hdr_initializer_rejects_installation(self):
         self.display_fixture()

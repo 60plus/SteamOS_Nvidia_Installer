@@ -23,6 +23,11 @@ SP_ASSET = 'sp.js'
 SP_ORIGINAL_SHA256 = '5a28c25041d07e69cf591a414519e0cf970b6884c1a0106659dcd9f1fb9586f9'
 SP_BEFORE = b'be=Tt&&Ct,it=(0,ke.wv)();return Lt?.IsVRGamepadUIOverlayWindow()'
 SP_AFTER = b'be=Tt&&Ct,it=!0         ;return Lt?.IsVRGamepadUIOverlayWindow()'
+# Steam Deck Stable build 1792618285 retains the same reviewed selector.
+SP_OCT21_SHA256 = '692083495994d2b2cf686effd89c11fa987aefa45787cbfa212627c37eda9c7a'
+# Client updates can finish well after the launcher starts (218 s observed).
+# Keep this below the generated service's TimeoutStartSec by 60 seconds.
+STARTUP_WAIT_SECONDS = 900
 
 
 def digest(data):
@@ -68,7 +73,8 @@ def update(steam, state, action):
     sp_data = read_regular(target) if target.exists() or target.is_symlink() else None
     if sp_data and b'IsVRGamepadUIOverlayWindow' in sp_data[0]:
         data, mode = sp_data
-        profiles = [(SP_ORIGINAL_SHA256, SP_BEFORE, SP_AFTER, None)]
+        profiles = [(expected, SP_BEFORE, SP_AFTER, None)
+                    for expected in (SP_ORIGINAL_SHA256, SP_OCT21_SHA256)]
     else:
         target = steam / 'steamui' / ASSET
         if not target.exists() and not target.is_symlink():
@@ -141,7 +147,7 @@ def browser_processes(proc=Path('/proc')):
 def startup(steam, state):
     # Steam's integrity check runs after ExecStartPre and restores modified UI.
     # Wait for its first browser, apply once, then reload that browser only.
-    deadline = time.monotonic() + 120
+    deadline = time.monotonic() + STARTUP_WAIT_SECONDS
     while time.monotonic() < deadline:
         if (state / 'disabled').exists():
             return 'Notification workaround disabled by user'
@@ -165,7 +171,8 @@ def startup(steam, state):
             finally:
                 os.close(fd)
         time.sleep(1)
-    return 'Notification workaround skipped: Steam browser did not start in 120 seconds'
+    return ('Notification workaround skipped: Steam browser did not start in '
+            f'{STARTUP_WAIT_SECONDS} seconds')
 
 
 def main():

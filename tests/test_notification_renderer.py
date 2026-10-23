@@ -2,6 +2,10 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import tempfile
+import signal
+import subprocess
+import sys
+import time
 import unittest
 from unittest.mock import patch
 
@@ -182,6 +186,90 @@ class Notifications(unittest.TestCase):
             self.assertIn('reloaded', n.startup(self.root, self.state))
             self.assertEqual(n.startup(self.root, self.state), 'already patched')
             kill.assert_called_once_with(99, n.signal.SIGTERM)
+
+    def test_october_21_profile_preserves_size_and_restores_exactly(self):
+        target = self.root / 'steamui' / n.SP_ASSET
+        original = b'new-build;' + n.SP_BEFORE + b';different-suffix'
+        target.write_bytes(original)
+        with patch.object(n, 'SP_OCT21_SHA256', hashlib.sha256(original).hexdigest()):
+            self.assertEqual(self.run_action('apply'), 'selected embedded renderer')
+            self.assertEqual(len(target.read_bytes()), len(original))
+            self.assertEqual(self.run_action('apply'), 'already patched')
+            self.assertEqual(self.run_action('restore'), 'restored original renderer')
+        self.assertEqual(target.read_bytes(), original)
+
+    def test_startup_waits_for_slow_client_update_and_reloads_once(self):
+        clock = [0.0]
+        def sleep(seconds):
+            clock[0] += seconds
+        def browser():
+            return [42] if clock[0] >= 218 else []
+        with patch.object(n.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(n.time, 'sleep', side_effect=sleep), \
+                patch.object(n, 'browser_processes', side_effect=browser), \
+                patch.object(n.os, 'pidfd_open', return_value=99), \
+                patch.object(n.os, 'close'), \
+                patch.object(n.signal, 'pidfd_send_signal') as kill:
+            self.assertIn('reloaded', n.startup(self.root, self.state))
+            self.assertEqual(n.startup(self.root, self.state), 'already patched')
+            kill.assert_called_once_with(99, n.signal.SIGTERM)
+
+    def test_startup_deadline_with_no_browser_leaves_files_untouched(self):
+        clock = [0.0]
+        def sleep(seconds):
+            clock[0] += seconds
+        with patch.object(n.time, 'monotonic', side_effect=lambda: clock[0]), \
+                patch.object(n.time, 'sleep', side_effect=sleep), \
+                patch.object(n, 'browser_processes', return_value=[]), \
+                patch.object(n.os, 'pidfd_open') as pidfd:
+            result = n.startup(self.root, self.state)
+            self.assertIn(f'{n.STARTUP_WAIT_SECONDS} seconds', result)
+            self.assertEqual(clock[0], n.STARTUP_WAIT_SECONDS)
+            pidfd.assert_not_called()
+        self.assertEqual(self.target.read_bytes(), self.original)
+        self.assertEqual(list(self.state.iterdir()), [])
+
+    def test_disabling_during_startup_wait_stops_without_modifying_asset(self):
+        def disable(seconds):
+            (self.state / 'disabled').touch()
+        with patch.object(n.time, 'sleep', side_effect=disable), \
+                patch.object(n, 'browser_processes', return_value=[]):
+            self.assertIn('disabled', n.startup(self.root, self.state))
+        self.assertEqual(self.target.read_bytes(), self.original)
+        self.assertEqual([p.name for p in self.state.iterdir()], ['disabled'])
+
+    def test_sigterm_interrupts_real_wait_without_touching_files(self):
+        # A separate Linux process proves the extended wait is interruptible;
+        # neither the real Steam browser nor the live user's files are involved.
+        code = '''import importlib.util,sys
+from pathlib import Path
+spec=importlib.util.spec_from_file_location('worker',sys.argv[1])
+worker=importlib.util.module_from_spec(spec); spec.loader.exec_module(worker)
+def browser():
+    print('waiting',flush=True)
+    return []
+worker.browser_processes=browser
+worker.startup(Path(sys.argv[2]),Path(sys.argv[3]))
+'''
+        proc = subprocess.Popen([sys.executable, '-u', '-c', code, n.__file__,
+                                 str(self.root), str(self.state)],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True)
+        try:
+            import select
+            self.assertTrue(select.select([proc.stdout], [], [], 5)[0])
+            self.assertEqual(proc.stdout.readline().strip(), 'waiting')
+            started = time.monotonic()
+            proc.terminate()
+            proc.communicate(timeout=3)
+            self.assertEqual(proc.returncode, -signal.SIGTERM)
+            self.assertLess(time.monotonic() - started, 3)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate()
+        self.assertEqual(self.target.read_bytes(), self.original)
+        self.assertEqual(list(self.state.iterdir()), [])
 
 
     def test_previous_beta_profile_roundtrip(self):

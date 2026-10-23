@@ -169,7 +169,12 @@ Description=Apply verified Steam notification workaround after client verificati
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/python3 /usr/lib/steamos-nvidia/notification-renderer.py startup
-TimeoutStartSec=130
+# The helper waits up to 900 seconds for a client update to finish. Leave another
+# minute for checking the full asset, saving its backup and reloading the browser.
+# SIGTERM still interrupts the wait immediately. If a session switch does not
+# propagate its stop, the waiting helper can serve the next session's browser;
+# the same exact-hash checks and one-reload limit apply there too.
+TimeoutStartSec=960
 # Deliberately not kept active after a successful run. Measured on hardware 2026-10-09:
 # a whole Game Mode session switch does not re-execute a worker that is already active,
 # so the workaround would lapse on the next Steam client update while the unit still

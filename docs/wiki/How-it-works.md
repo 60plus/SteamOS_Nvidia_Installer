@@ -569,8 +569,15 @@ border on SteamOS 3.8.28. Regression tests cover both older profiles, an already
 patched older client, transition between old and new layouts, and refusal of an
 unknown new client. These tests do not establish support for future Steam builds.
 
+Installer 0.2.6 also recognizes the reviewed JavaScript asset from Steam Stable
+build `1792618285`. The same full-hash checks, verified backup and refusal of
+unknown clients apply.
+
 A user service starts with either Steam launcher, in Game Mode and from the desktop
-alike, and waits up to 120 seconds for the main Steam browser process. The workaround
+alike, and waits up to 900 seconds for the main Steam browser process. Client updates
+can delay that process beyond the previous two-minute limit; one measured startup
+took 218 seconds. The service allows another minute for the file operation and can
+still be stopped immediately while waiting. The workaround
 is checked again whenever either launcher service starts. An internal Steam client
 restart within the same launcher session may not rerun the service. It accepts
 only a complete SHA-256 hash from its list of reviewed JavaScript assets, verifies a single

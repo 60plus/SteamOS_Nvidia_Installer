@@ -311,9 +311,9 @@ other card has been tested here. A result from a different NVIDIA card is welcom
 [Diagnostics](Diagnostics-and-test-results.md).
 
 **If you still see this on 0.2.0 or newer**, first confirm which Gamescope your system is running.
-Take a diagnostic report and find the section named `Experimental Gamescope selection`. A line
-beginning `capture-backport` means this project's build is in use. A line beginning `stock` means
-the distribution's own build is in use, so the fix is not present, and that happens when this
+Take a diagnostic report and find the section named `Gamescope selection recorded for this
+system`. A line beginning `capture-backport` means this project's build was selected for Game Mode.
+A line beginning `stock` means the distribution's own build was, so the fix is not present, and that happens when this
 project's build did not accept the flags the session passes it rather than because an update went
 wrong. The Game Mode session records the decision once at startup, in the journal of
 `gamescope-session.service` in your own user session:

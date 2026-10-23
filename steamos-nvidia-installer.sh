@@ -73,7 +73,7 @@
 # through chroot, so the host does not need pacman.
 # Notes: nvidia-open = RTX 20xx+ (Turing) only. Target machines need UEFI +
 # Secure Boot off. First boot of an installed system lands in the gamescope
-# Steam setup; if it black-screens: Ctrl+Alt+F3 → steamos-session-select plasma.
+# Steam setup; if it black-screens: Ctrl+Alt+F4 → steamos-session-select plasma.
 
 set -euo pipefail
 

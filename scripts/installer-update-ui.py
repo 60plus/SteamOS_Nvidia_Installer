@@ -21,6 +21,13 @@ def summarise(notes, lines=14, chars=900):
     notes pushed Continue and Cancel off the bottom of a 1440p screen and the
     window could not be answered at all. Measured on 2026-09-26. Keep the first
     lines, say how many are left, and point at the release page for the rest.
+
+    Notes are not always a list of short lines. When the first line alone is
+    over the character budget, which is what a paragraph looks like, nothing
+    fits and this used to return the marker by itself: a confirmation window
+    with not one word about the update in it. That first line is cut instead.
+    The 0.2.1 notes carry a 1200 character line, so the margin was one
+    paragraph of ordering.
     """
     body = notes.strip().splitlines()
     kept, used = [], 0
@@ -31,9 +38,19 @@ def summarise(notes, lines=14, chars=900):
         used += len(line) + 1
     if len(kept) == len(body):
         return notes.strip()
+    if not kept:
+        # The first line alone is longer than the budget, which is what notes
+        # written as one paragraph look like. Returning the marker on its own
+        # would ask for a decision on an update with nothing said about it.
+        kept = [body[0][:chars - 3].rstrip() + '...']
     remaining = len(body) - len(kept)
-    return ('\n'.join(kept).rstrip() + '\n\n[' + str(remaining) +
-            ' more lines. The full notes are on the release page.]')
+    if remaining > 0:
+        tail = ('[' + str(remaining) + ' more line' +
+                ('' if remaining == 1 else 's') +
+                '. The full notes are on the release page.]')
+    else:
+        tail = '[Shortened. The full notes are on the release page.]'
+    return '\n'.join(kept).rstrip() + '\n\n' + tail
 
 
 def dialog(kind, text, *options):

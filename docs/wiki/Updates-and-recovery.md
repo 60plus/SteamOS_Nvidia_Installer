@@ -44,13 +44,13 @@ on screen announces the change, so read the recorded selection after the reboot:
 cat /usr/lib/steamos-nvidia/gamescope/status.txt
 ```
 
-A line beginning `capture-backport` means this project's Gamescope is in use. A line beginning
-`stock` means it is not, and the corrections it carries, including the menu fix, are not applied
+A line beginning `capture-backport` means this project's Gamescope is selected for Game Mode. A
+line beginning `stock` means it is not, and the corrections it carries, including the menu fix, are not applied
 on that build. The capture color correction is a backport, so a newer Gamescope from SteamOS may
 already carry that part. The menu fix is this project's own change and is in no SteamOS build, so
 on `stock` the corrupted menus can come back and stay until a build that the new session accepts is
 released. That is why this check is worth running after an OS update rather than treating it as a
-formality. The same line appears in the diagnostic report as **Experimental Gamescope selection**.
+formality. The same line appears in the diagnostic report as **Gamescope selection recorded for this system**.
 If the file does not exist at all, the image was built without this project's Gamescope artifact,
 usually by the base only build command, so there is nothing to select. Report the whole line
 together with your SteamOS version.
