@@ -320,5 +320,87 @@ worker.startup(Path(sys.argv[2]),Path(sys.argv[3]))
         self.assertEqual(len(list(self.state.glob('*.original'))), 2)
 
 
+    def november_client(self):
+        target = self.root / 'steamui' / n.SP_ASSET
+        original = b'November beta;' + n.SP_NOV13_BEFORE + b';end'
+        target.write_bytes(original)
+        guard = patch.object(n, 'SP_NOV13_SHA256', n.digest(original))
+        guard.start()
+        self.addCleanup(guard.stop)
+        return target, original
+
+    def test_november_client_roundtrip_and_single_browser_reload(self):
+        target, original = self.november_client()
+        with patch.object(n, 'browser_processes', return_value=[42]), \
+                patch.object(n.os, 'pidfd_open', return_value=99), \
+                patch.object(n.os, 'close'), patch.object(n.time, 'sleep'), \
+                patch.object(n.signal, 'pidfd_send_signal') as kill:
+            self.assertIn('reloaded', n.startup(self.root, self.state))
+            self.assertEqual(target.read_bytes(), original.replace(n.SP_NOV13_BEFORE, n.SP_NOV13_AFTER))
+            self.assertEqual(len(target.read_bytes()), len(original))
+            self.assertEqual(n.startup(self.root, self.state), 'already patched')
+            kill.assert_called_once_with(99, n.signal.SIGTERM)
+        self.assertEqual(self.run_action('status'), 'embedded renderer active on disk')
+        self.assertEqual(self.target.read_bytes(), self.original)
+        self.assertEqual(self.run_action('restore'), 'restored original renderer')
+        self.assertEqual(target.read_bytes(), original)
+
+    def test_unknown_november_asset_never_patches_or_reloads(self):
+        target, original = self.november_client()
+        changed = original + b'new build outside selector'
+        target.write_bytes(changed)
+        with patch.object(n, 'browser_processes', return_value=[42]), \
+                patch.object(n.os, 'pidfd_open', return_value=99), \
+                patch.object(n.os, 'close'), patch.object(n.time, 'sleep'), \
+                patch.object(n.signal, 'pidfd_send_signal') as kill:
+            self.assertIn('unsupported', n.startup(self.root, self.state))
+            kill.assert_not_called()
+        self.assertEqual(target.read_bytes(), changed)
+        self.assertEqual(self.target.read_bytes(), self.original)
+        self.assertEqual(list(self.state.glob('*.original')), [])
+
+    def test_november_backup_cannot_restore_later_steam_update(self):
+        target, original = self.november_client()
+        self.run_action('apply')
+        changed = original + b'later Steam update'
+        target.write_bytes(changed)
+        self.assertIn('unsupported', self.run_action('restore'))
+        self.assertEqual(target.read_bytes(), changed)
+
+    def test_november_corrupt_backup_blocks_restore(self):
+        target, original = self.november_client()
+        self.run_action('apply')
+        patched = target.read_bytes()
+        (self.state / (n.digest(original) + '.original')).write_bytes(b'corrupt')
+        with self.assertRaisesRegex(ValueError, 'Backup verification failed'):
+            self.run_action('restore')
+        self.assertEqual(target.read_bytes(), patched)
+
+    def test_november_and_october_profiles_keep_separate_backups(self):
+        target, october = self.new_client()
+        self.run_action('apply')
+        target, november = self.november_client()
+        self.run_action('apply')
+        self.assertEqual(self.run_action('restore'), 'restored original renderer')
+        self.assertEqual(target.read_bytes(), november)
+        target.write_bytes(october)
+        self.assertEqual(self.run_action('apply'), 'selected embedded renderer')
+        self.assertEqual(self.run_action('restore'), 'restored original renderer')
+        self.assertEqual(target.read_bytes(), october)
+        self.assertEqual(len(list(self.state.glob('*.original'))), 2)
+
+    def test_browser_detection_accepts_steamrt64_main_process_only(self):
+        proc = self.root / 'proc'
+        for pid, argv in {
+                42: b'/home/deck/.local/share/Steam/steamrt64/steamwebhelper\0-nocrashdialog\0',
+                43: b'/home/deck/.local/share/Steam/steamrt64/steamwebhelper\0-nocrashdialog\0--type=renderer\0',
+                44: b'/home/deck/.local/share/Steam/steamrt64/steam\0-gamepadui\0',
+        }.items():
+            entry = proc / str(pid)
+            entry.mkdir(parents=True)
+            (entry / 'cmdline').write_bytes(argv)
+        self.assertEqual(n.browser_processes(proc), [42])
+
+
 if __name__ == '__main__':
     unittest.main()

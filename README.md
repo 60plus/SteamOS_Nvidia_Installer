@@ -33,11 +33,11 @@ with a controller or switch to Desktop Mode when you need a full Linux desktop.
 - **Installer tools stay current:** configured images include a desktop updater for signed project fixes.
 - **Built on your machine:** the original recovery image is kept intact. Choose a driver version and produce your own USB image.
 
-Installer 0.2.7 uses Gamescope 3.17.0. Two earlier capture patches have been removed
-because their fixes are now included upstream; the remaining NVIDIA corrections
-are retained. The update was tested through the desktop updater and remained intact
-after a SteamOS update to 3.9.5. See the [release notes](https://github.com/60plus/SteamOS_Nvidia_Installer/releases/tag/v0.2.7)
-and [Gamescope details](https://github.com/60plus/SteamOS_Nvidia_Installer/wiki/How-it-works#capture-color-correction).
+Installer 0.2.8 restores notifications for the current Steam Stable and Beta clients
+while retaining support for previously reviewed clients. Gamescope 3.17.0 and the
+other update components are unchanged from 0.2.7. See the
+[release notes](https://github.com/60plus/SteamOS_Nvidia_Installer/releases/tag/v0.2.8)
+and [notification compatibility](https://github.com/60plus/SteamOS_Nvidia_Installer/wiki/How-it-works#embedded-steam-notifications).
 
 ## The aim is to return to plain SteamOS
 

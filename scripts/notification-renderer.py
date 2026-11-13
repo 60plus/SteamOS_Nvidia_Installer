@@ -25,6 +25,11 @@ SP_BEFORE = b'be=Tt&&Ct,it=(0,ke.wv)();return Lt?.IsVRGamepadUIOverlayWindow()'
 SP_AFTER = b'be=Tt&&Ct,it=!0         ;return Lt?.IsVRGamepadUIOverlayWindow()'
 # Steam Deck Stable build 1792618285 retains the same reviewed selector.
 SP_OCT21_SHA256 = '692083495994d2b2cf686effd89c11fa987aefa45787cbfa212627c37eda9c7a'
+# Steam Deck Beta build 1794536281 renames the same renderer selector.
+# Reviewed against the complete client asset; never match this snippet alone.
+SP_NOV13_SHA256 = '4b818cd371388e06c66fe8c0bb592b7dfd4a6fb55eb56844d1b360b64aec3046'
+SP_NOV13_BEFORE = b'gt=Ut&&Et,kt=(0,xe.wv)();return Tt?.IsVRGamepadUIOverlayWindow()'
+SP_NOV13_AFTER = b'gt=Ut&&Et,kt=!0         ;return Tt?.IsVRGamepadUIOverlayWindow()'
 # Client updates can finish well after the launcher starts (218 s observed).
 # Keep this below the generated service's TimeoutStartSec by 60 seconds.
 STARTUP_WAIT_SECONDS = 900
@@ -75,6 +80,7 @@ def update(steam, state, action):
         data, mode = sp_data
         profiles = [(expected, SP_BEFORE, SP_AFTER, None)
                     for expected in (SP_ORIGINAL_SHA256, SP_OCT21_SHA256)]
+        profiles.append((SP_NOV13_SHA256, SP_NOV13_BEFORE, SP_NOV13_AFTER, None))
     else:
         target = steam / 'steamui' / ASSET
         if not target.exists() and not target.is_symlink():

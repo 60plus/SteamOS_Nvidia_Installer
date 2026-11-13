@@ -394,6 +394,11 @@ message notifications displayed correctly, including game icons and avatars.
 Restart, fresh installation with its first update, and the Beta to Preview to
 Stable sequence passed with the supported client builds.
 
+Installer 0.2.8 adds compatibility with the Steam UI asset checked on both
+Stable and Beta on November 13, 2026. It retains the older supported profiles.
+A later Steam client update can change that asset again; an `unsupported` result
+means the helper skipped an unreviewed version, not that the GPU driver was replaced.
+
 On an existing installation, use **SteamOS NVIDIA Installer Update** to install
 the current release, then restart. Inspect its state without sudo:
 

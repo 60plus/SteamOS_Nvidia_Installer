@@ -574,6 +574,22 @@ Installer 0.2.6 also recognizes the reviewed JavaScript asset from Steam Stable
 build `1792618285`. The same full-hash checks, verified backup and refusal of
 unknown clients apply.
 
+Installer 0.2.8 adds the reviewed `sp.js` asset with SHA-256
+`4b818cd371388e06c66fe8c0bb592b7dfd4a6fb55eb56844d1b360b64aec3046`.
+It was inspected in Beta client build `1794536281` and matched byte-for-byte on
+the Stable client checked on November 13, 2026. The selector variables changed,
+so this asset has a separate exact-hash profile. Earlier profiles remain supported.
+Switching between supported client builds selects the corresponding profile;
+future unknown assets still require review. OS channel selection does not bypass
+these checks.
+
+Notifications and Quick Access Menu, including over a game, were confirmed on
+the NVIDIA PC running SteamOS 3.9.6. Controller notifications were also compared
+with the same type on an ASUS ROG Ally running SteamOS 3.9.5 Stable and looked
+the same. Both rendering paths use Steam's own notification component; the
+workaround changes its container, not its content or styling. Gamescope is
+unchanged from 0.2.7.
+
 A user service starts with either Steam launcher, in Game Mode and from the desktop
 alike, and waits up to 900 seconds for the main Steam browser process. Client updates
 can delay that process beyond the previous two-minute limit; one measured startup
